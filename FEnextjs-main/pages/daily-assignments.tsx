@@ -13,9 +13,10 @@ export interface PersonnelData {
 
 export interface VehiculeData {
   _id: string;
-  name: string;
-  type?: string;
-  plateNumber?: string;
+  marque: string;           // Brand (e.g., "Mercedes")
+  modele: string;           // Model (e.g., "Actros")
+  type?: string;            // Type (e.g., "Dump Truck")
+  immatriculation?: string; // Registration/Plate number (e.g., "TUN-1234")
 }
 
 export interface ChantierData {
@@ -39,6 +40,7 @@ export interface VehiculeAssignment {
 export interface FuelCost {
   description: string;
   amount: number;
+  vehicule?: string | VehiculeData; // Link to vehicle
   paymentMethod: 'cash' | 'credit_card' | 'check' | 'other';
   notes?: string;
 }
@@ -94,11 +96,13 @@ const DailyAssignmentsPage = () => {
 
   const handleAddAssignment = async (data: DailyAssignmentData) => {
     try {
+      console.log('Sending to backend:', data);
       const response = await apiPost<DailyAssignmentData>('/daily-assignment', data, 'daily-assignment');
       setAssignments(prev => [response, ...prev]);
       return { success: true, message: 'Assignment created successfully!' };
     } catch (error: any) {
       console.error('Error creating assignment:', error);
+      console.error('Error response:', error.response?.data);
       const isQueued = error.message?.includes('queued');
       return {
         success: isQueued,

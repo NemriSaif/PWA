@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Data Inspector - GMS PWA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #569cd6;
+            margin-bottom: 20px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #1177bb;
+        }
+        
+        .btn.success {
+            background: #0e7d42;
+        }
+        
+        .btn.success:hover {
+            background: #109650;
+        }
+        
+        .output {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 5px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .summary {
+            background: #1e1e1e;
+            border: 2px solid #569cd6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .summary h2 {
+            color: #569cd6;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .stat {
+            display: inline-block;
+            background: #252526;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #858585;
+            font-size: 12px;
+            display: block;
+        }
+        
+        .stat-value {
+            color: #4ec9b0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .string { color: #ce9178; }
+        .number { color: #b5cea8; }
+        .boolean { color: #569cd6; }
+        .null { color: #858585; }
+        .key { color: #9cdcfe; }
+        
+        pre {
+            margin: 0;
+        }
+        
+        .error {
+            background: #5a1d1d;
+            border: 1px solid #f48771;
+            color: #f48771;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Backend Data Inspector</h1>
+        
+        <div class="btn-group">
+            <button class="btn" onclick="fetchAssignments()">📅 Fetch All Assignments</button>
+            <button class="btn" onclick="fetchVehicles()">🚗 Fetch All Vehicles</button>
+            <button class="btn" onclick="fetchChantiers()">🏗️ Fetch All Work Sites</button>
+            <button class="btn" onclick="analyzeAssignments()">📊 Analyze Assignments</button>
+            <button class="btn success" onclick="clearOutput()">🗑️ Clear Output</button>
+        </div>
+        
+        <div id="summary" style="display: none;" class="summary">
+            <h2>📊 Summary</h2>
+            <div id="summaryContent"></div>
+        </div>
+        
+        <div id="error" style="display: none;" class="error"></div>
+        
+        <div id="output" class="output">
+            <span style="color: #858585;">Click a button above to fetch data...</span>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '<span style="color: #858585;">Output cleared. Click a button to fetch data...</span>';
+            document.getElementById('summary').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+        }
+        
+        function showError(message) {
+            const errorEl = document.getElementById('error');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+        
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+        
+        function syntaxHighlight(json) {
+            if (typeof json != 'string') {
+                json = JSON.stringify(json, undefined, 2);
+            }
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                var cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+        
+        async function fetchAssignments() {
+            hideError();
+            try {
+                const response = await fetch(`${API_BASE}/daily-assignment`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                
+                const data = await response.json();
+                
+                // Show summary
+                const summaryEl = document.getElementById('summaryContent');
+                const totalAssignments = data.length;
+                const withFuel = data.filter(a => a.fuelCosts && a.fuelCosts.length > 0).length;
+                const totalFuelCosts = data.reduce((sum, a) => sum + (a.fuelCosts?.length || 0), 0);
+                const withVehicle = data.reduce((sum, a) => 
+                    sum + (a.fuelCosts?.filter(f => f.vehicule).length || 0), 0);
+                
+                const dates = [...new Set(data.map(a => new Date(a.date).toLocaleDateString()))].sort();
+                
+                summaryEl.innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Total Assignments</span>
+                        <span class="stat-value">${totalAssignments}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">With Fuel Costs</span>
+                        <span class="stat-value">${withFuel}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Total Fuel Costs</span>
+                        <span class="stat-value">${totalFuelCosts}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">With Vehicle Link</span>
+                        <span class="stat-value">${withVehicle}</span>
+                    </div>
+                    <div style="margin-top: 10px; color: #d4d4d4;">
+                        <strong>Dates:</strong> ${dates.join(', ')}
+                    </div>
+                `;
+                document.getElementById('summary').style.display = 'block';
+                
+                document.getElementById('output').innerHTML = '<pre>' + syntaxHighlight(data) + '</pre>';
+            } catch (error) {
+                showError(`❌ Error fetching assignments: ${error.message}. Is the backend running on port 3000?`);
+            }
+        }
+        
+        async function fetchVehicles() {
+            hideError();
+            try {
+                const response = await fetch(`${API_BASE}/vehicule`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                
+                const data = await response.json();
+                
+                const summaryEl = document.getElementById('summaryContent');
+                summaryEl.innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Total Vehicles</span>
+                        <span class="stat-value">${data.length}</span>
+                    </div>
+                `;
+                document.getElementById('summary').style.display = 'block';
+                
+                document.getElementById('output').innerHTML = '<pre>' + syntaxHighlight(data) + '</pre>';
+            } catch (error) {
+                showError(`❌ Error fetching vehicles: ${error.message}`);
+            }
+        }
+        
+        async function fetchChantiers() {
+            hideError();
+            try {
+                const response = await fetch(`${API_BASE}/chantier`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                
+                const data = await response.json();
+                
+                const summaryEl = document.getElementById('summaryContent');
+                summaryEl.innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Total Work Sites</span>
+                        <span class="stat-value">${data.length}</span>
+                    </div>
+                `;
+                document.getElementById('summary').style.display = 'block';
+                
+                document.getElementById('output').innerHTML = '<pre>' + syntaxHighlight(data) + '</pre>';
+            } catch (error) {
+                showError(`❌ Error fetching work sites: ${error.message}`);
+            }
+        }
+        
+        async function analyzeAssignments() {
+            hideError();
+            try {
+                const response = await fetch(`${API_BASE}/daily-assignment`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                
+                const data = await response.json();
+                
+                const analysis = {
+                    totalAssignments: data.length,
+                    dates: {},
+                    fuelCostAnalysis: {
+                        totalFuelCosts: 0,
+                        withVehicle: 0,
+                        withoutVehicle: 0,
+                        vehiclePopulated: 0,
+                        vehicleNotPopulated: 0
+                    },
+                    sampleFuelCosts: []
+                };
+                
+                data.forEach(assignment => {
+                    const dateStr = new Date(assignment.date).toLocaleDateString();
+                    analysis.dates[dateStr] = (analysis.dates[dateStr] || 0) + 1;
+                    
+                    if (assignment.fuelCosts) {
+                        assignment.fuelCosts.forEach(fc => {
+                            analysis.fuelCostAnalysis.totalFuelCosts++;
+                            
+                            if (fc.vehicule) {
+                                analysis.fuelCostAnalysis.withVehicle++;
+                                if (typeof fc.vehicule === 'object' && fc.vehicule._id) {
+                                    analysis.fuelCostAnalysis.vehiclePopulated++;
+                                } else {
+                                    analysis.fuelCostAnalysis.vehicleNotPopulated++;
+                                }
+                            } else {
+                                analysis.fuelCostAnalysis.withoutVehicle++;
+                            }
+                            
+                            if (analysis.sampleFuelCosts.length < 5) {
+                                analysis.sampleFuelCosts.push({
+                                    date: dateStr,
+                                    description: fc.description,
+                                    vehicule: fc.vehicule,
+                                    vehiculeType: typeof fc.vehicule
+                                });
+                            }
+                        });
+                    }
+                });
+                
+                document.getElementById('output').innerHTML = '<pre>' + syntaxHighlight(analysis) + '</pre>';
+                
+                const summaryEl = document.getElementById('summaryContent');
+                summaryEl.innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Total Fuel Costs</span>
+                        <span class="stat-value">${analysis.fuelCostAnalysis.totalFuelCosts}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">With Vehicle</span>
+                        <span class="stat-value">${analysis.fuelCostAnalysis.withVehicle}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Vehicle Populated</span>
+                        <span class="stat-value">${analysis.fuelCostAnalysis.vehiclePopulated}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Without Vehicle</span>
+                        <span class="stat-value">${analysis.fuelCostAnalysis.withoutVehicle}</span>
+                    </div>
+                `;
+                document.getElementById('summary').style.display = 'block';
+                
+            } catch (error) {
+                showError(`❌ Error analyzing assignments: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

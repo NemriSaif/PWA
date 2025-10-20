@@ -8,6 +8,7 @@ interface FuelCostEntry {
    assignmentId: string;
    date: string;
    chantier: string;
+   vehicule?: string; // Vehicle info
    description: string;
    amount: number;
    paymentMethod: string;
@@ -25,6 +26,7 @@ export const FuelCosts = ({ fuelCosts, onRefresh }: FuelCostsProps) => {
    const columns = [
       {name: 'DATE', uid: 'date'},
       {name: 'WORK SITE', uid: 'chantier'},
+      {name: 'VEHICLE', uid: 'vehicule'},
       {name: 'DESCRIPTION', uid: 'description'},
       {name: 'AMOUNT (TND)', uid: 'amount'},
       {name: 'PAYMENT', uid: 'paymentMethod'},
@@ -37,6 +39,8 @@ export const FuelCosts = ({ fuelCosts, onRefresh }: FuelCostsProps) => {
             return <Text>{new Date(fuelCost.date).toLocaleDateString()}</Text>;
          case 'chantier':
             return <Text b>{fuelCost.chantier}</Text>;
+         case 'vehicule':
+            return <Text css={{color: '$accents9'}}>{fuelCost.vehicule || '🚗 Not specified'}</Text>;
          case 'description':
             return <Text>{fuelCost.description}</Text>;
          case 'amount':

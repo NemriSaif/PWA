@@ -37,6 +37,10 @@ export class FuelCostDto {
   @IsNotEmpty()
   amount: number;
 
+  @IsString()
+  @IsOptional()
+  vehicule?: string; // Vehicle ID reference
+
   @IsEnum(['cash', 'credit_card', 'check', 'other'])
   @IsOptional()
   paymentMethod?: string;

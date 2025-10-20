@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick API Test - GMS PWA</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .btn:hover {
+            background: #1177bb;
+        }
+        pre {
+            background: #252526;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .success { color: #4ec9b0; }
+        .error { color: #f48771; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Quick API Test</h1>
+    
+    <div>
+        <button class="btn" onclick="testVehicles()">Test GET /vehicule</button>
+        <button class="btn" onclick="testChantiers()">Test GET /chantier</button>
+        <button class="btn" onclick="testAssignments()">Test GET /daily-assignment</button>
+    </div>
+    
+    <div id="output"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        
+        function show(html) {
+            document.getElementById('output').innerHTML = html;
+        }
+        
+        async function testVehicles() {
+            try {
+                show('<p>Fetching vehicles...</p>');
+                const response = await fetch(`${API_BASE}/vehicule`);
+                const data = await response.json();
+                
+                let html = `<p class="success">✅ Success! Found ${data.length} vehicles</p>`;
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                // Check structure
+                if (data.length > 0) {
+                    const first = data[0];
+                    html += `<p><strong>First vehicle structure:</strong></p>`;
+                    html += `<ul>`;
+                    html += `<li>_id: ${first._id ? '✅' : '❌'}</li>`;
+                    html += `<li>name: ${first.name ? `✅ "${first.name}"` : '❌ MISSING'}</li>`;
+                    html += `<li>type: ${first.type ? `✅ "${first.type}"` : '⚠️ empty'}</li>`;
+                    html += `<li>plateNumber: ${first.plateNumber ? `✅ "${first.plateNumber}"` : '⚠️ empty'}</li>`;
+                    html += `</ul>`;
+                }
+                
+                show(html);
+            } catch (error) {
+                show(`<p class="error">❌ Error: ${error.message}</p>`);
+            }
+        }
+        
+        async function testChantiers() {
+            try {
+                show('<p>Fetching work sites...</p>');
+                const response = await fetch(`${API_BASE}/chantier`);
+                const data = await response.json();
+                
+                let html = `<p class="success">✅ Success! Found ${data.length} work sites</p>`;
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                show(html);
+            } catch (error) {
+                show(`<p class="error">❌ Error: ${error.message}</p>`);
+            }
+        }
+        
+        async function testAssignments() {
+            try {
+                show('<p>Fetching daily assignments...</p>');
+                const response = await fetch(`${API_BASE}/daily-assignment`);
+                const data = await response.json();
+                
+                let html = `<p class="success">✅ Success! Found ${data.length} assignments</p>`;
+                
+                // Check dates
+                const dates = [...new Set(data.map(a => new Date(a.date).toLocaleDateString()))];
+                html += `<p><strong>Dates found:</strong> ${dates.join(', ')}</p>`;
+                
+                // Check fuel costs with vehicles
+                let fuelWithVehicles = 0;
+                let fuelWithoutVehicles = 0;
+                let vehiclesPopulated = 0;
+                
+                data.forEach(assignment => {
+                    if (assignment.fuelCosts) {
+                        assignment.fuelCosts.forEach(fc => {
+                            if (fc.vehicule) {
+                                fuelWithVehicles++;
+                                if (typeof fc.vehicule === 'object' && fc.vehicule.name) {
+                                    vehiclesPopulated++;
+                                }
+                            } else {
+                                fuelWithoutVehicles++;
+                            }
+                        });
+                    }
+                });
+                
+                html += `<p><strong>Fuel Costs:</strong></p>`;
+                html += `<ul>`;
+                html += `<li>With vehicle reference: ${fuelWithVehicles}</li>`;
+                html += `<li>Vehicle data populated: ${vehiclesPopulated}</li>`;
+                html += `<li>Without vehicle: ${fuelWithoutVehicles}</li>`;
+                html += `</ul>`;
+                
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                show(html);
+            } catch (error) {
+                show(`<p class="error">❌ Error: ${error.message}</p>`);
+            }
+        }
+        
+        // Auto-test on load
+        window.onload = () => {
+            show('<p>Click a button to test the API...</p>');
+        };
+    </script>
+</body>
+</html>

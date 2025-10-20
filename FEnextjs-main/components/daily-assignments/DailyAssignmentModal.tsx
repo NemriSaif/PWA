@@ -48,6 +48,14 @@ export const DailyAssignmentModal = ({
   chantiers,
   onMarkPaid,
 }: DailyAssignmentModalProps) => {
+  // Debug logging
+  useEffect(() => {
+    console.log('=== DailyAssignmentModal Props ===');
+    console.log('Personnel:', personnel);
+    console.log('Vehicules:', vehicules);
+    console.log('Chantiers:', chantiers);
+  }, [personnel, vehicules, chantiers]);
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<DailyAssignmentData>({
     date: new Date().toISOString().split('T')[0],
@@ -195,7 +203,7 @@ export const DailyAssignmentModal = ({
   const addFuelCost = () => {
     setFuelCostsList([
       ...fuelCostsList,
-      { description: '', amount: 0, paymentMethod: 'cash', notes: '' },
+      { description: '', amount: 0, vehicule: undefined, paymentMethod: 'cash', notes: '' },
     ]);
   };
 
@@ -240,6 +248,9 @@ export const DailyAssignmentModal = ({
       fuelCosts: fuelCostsList.filter((fc) => fc.description && fc.amount > 0),
     };
 
+    console.log('=== Submitting Assignment Data ===');
+    console.log('Submit data:', JSON.stringify(submitData, null, 2));
+
     if (onSubmit) {
       onSubmit(submitData);
     }
@@ -276,42 +287,55 @@ export const DailyAssignmentModal = ({
               required
             />
 
-            <Dropdown>
-              <Dropdown.Button
-                flat
-                css={{ width: '100%', justifyContent: 'space-between' }}
-                color={errors.chantier ? 'error' : 'default'}
-              >
-                {formData.chantier
-                  ? chantiers.find((c) => c._id === formData.chantier)?.name || 'Select Work Site'
-                  : 'Select Work Site *'}
-              </Dropdown.Button>
-              <Dropdown.Menu
-                aria-label="Work site selection"
-                selectionMode="single"
-                selectedKeys={
-                  formData.chantier
-                    ? [typeof formData.chantier === 'string' ? formData.chantier : (formData.chantier as ChantierData)._id]
-                    : []
-                }
-                onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as string;
-                  setFormData({ ...formData, chantier: selected });
-                  setErrors({ ...errors, chantier: '' });
-                }}
-              >
-                {chantiers.map((chantier) => (
-                  <Dropdown.Item key={chantier._id}>
-                    {chantier.name} - {chantier.location}
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown>
-            {errors.chantier && (
-              <Text size={12} color="error">
-                {errors.chantier}
-              </Text>
-            )}
+            <Box css={{ width: '100%' }}>
+              <Text size="$sm" css={{ mb: '$2' }}>Work Site *</Text>
+              <Dropdown>
+                <Dropdown.Button
+                  flat
+                  css={{ 
+                    width: '100%', 
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'block'
+                  }}
+                  color={errors.chantier ? 'error' : 'default'}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                    {formData.chantier
+                      ? `🏗️ ${chantiers.find((c) => c._id === formData.chantier)?.name || 'Select Work Site'}`
+                      : '🏗️ Select Work Site *'}
+                  </span>
+                </Dropdown.Button>
+                <Dropdown.Menu
+                  aria-label="Work site selection"
+                  selectionMode="single"
+                  selectedKeys={
+                    formData.chantier
+                      ? [typeof formData.chantier === 'string' ? formData.chantier : (formData.chantier as ChantierData)._id]
+                      : []
+                  }
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string;
+                    setFormData({ ...formData, chantier: selected });
+                    setErrors({ ...errors, chantier: '' });
+                  }}
+                >
+                  {chantiers.map((chantier) => (
+                    <Dropdown.Item key={chantier._id}>
+                      🏗️ {chantier.name} - {chantier.location}
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              </Dropdown>
+              {errors.chantier && (
+                <Text size={12} color="error">
+                  {errors.chantier}
+                </Text>
+              )}
+            </Box>
 
             <Textarea
               label="General Notes"
@@ -417,6 +441,7 @@ export const DailyAssignmentModal = ({
         );
 
       case 3:
+        console.log('Step 3 - Vehicles data:', vehicules);
         return (
           <Flex direction="column" css={{ gap: '$6' }}>
             <Text h5>Assign Vehicles ({selectedVehicles.size} selected)</Text>
@@ -427,6 +452,7 @@ export const DailyAssignmentModal = ({
               <Box css={{ maxHeight: '400px', overflowY: 'auto' }}>
                 <Grid.Container gap={2}>
                   {vehicules.map((vehicle) => {
+                    console.log('Rendering vehicle:', vehicle);
                     const isSelected = selectedVehicles.has(vehicle._id);
                     return (
                       <Grid xs={12} key={vehicle._id}>
@@ -446,11 +472,14 @@ export const DailyAssignmentModal = ({
                                 onChange={() => handleVehicleToggle(vehicle._id)}
                                 size="lg"
                               >
-                                <Text b>{vehicle.name}</Text>
+                                <Text b>{vehicle.marque} {vehicle.modele}</Text>
+                                <Text size="$sm" color="$accents7">
+                                  {vehicle.type || 'Unknown Type'} {vehicle.immatriculation ? `- ${vehicle.immatriculation}` : ''}
+                                </Text>
                               </Checkbox>
-                              {vehicle.plateNumber && (
+                              {vehicle.immatriculation && (
                                 <Badge color="warning" variant="flat">
-                                  {vehicle.plateNumber}
+                                  {vehicle.immatriculation}
                                 </Badge>
                               )}
                             </Flex>
@@ -519,6 +548,68 @@ export const DailyAssignmentModal = ({
                         onChange={(e) => updateFuelCost(index, 'description', e.target.value)}
                         placeholder="e.g., Diesel for Truck 1"
                       />
+
+                      <Box css={{ width: '100%' }}>
+                        <Text size="$sm" css={{ mb: '$2' }}>Vehicle (Optional)</Text>
+                        <Dropdown>
+                          <Dropdown.Button 
+                            flat 
+                            css={{ 
+                              width: '100%',
+                              justifyContent: 'flex-start',
+                              textAlign: 'left'
+                            }}
+                          >
+                            {(() => {
+                              console.log('Fuel cost vehicule value:', fuelCost.vehicule);
+                              console.log('Available vehicules:', vehicules);
+                              
+                              if (!fuelCost.vehicule) return 'Select Vehicle (Optional)';
+                              
+                              const vehicleId = typeof fuelCost.vehicule === 'object'
+                                ? fuelCost.vehicule._id
+                                : fuelCost.vehicule;
+                              
+                              const foundVehicle = vehicules.find(v => v._id === vehicleId);
+                              console.log('Found vehicle:', foundVehicle);
+                              
+                              if (foundVehicle) {
+                                return `🚗 ${foundVehicle.marque} ${foundVehicle.modele}${foundVehicle.immatriculation ? ` - ${foundVehicle.immatriculation}` : ''}`;
+                              }
+                              
+                              return 'Unknown Vehicle';
+                            })()}
+                          </Dropdown.Button>
+                          <Dropdown.Menu
+                            aria-label="Vehicle selection"
+                            selectionMode="single"
+                            selectedKeys={
+                              fuelCost.vehicule
+                                ? [
+                                    typeof fuelCost.vehicule === 'object'
+                                      ? fuelCost.vehicule._id
+                                      : fuelCost.vehicule,
+                                  ]
+                                : []
+                            }
+                            onSelectionChange={(keys) => {
+                              const selectedKey = Array.from(keys)[0] as string;
+                              console.log('Selected vehicle key:', selectedKey);
+                              updateFuelCost(index, 'vehicule', selectedKey === 'none' ? undefined : selectedKey);
+                            }}
+                          >
+                            <Dropdown.Item key="none">✖️ None</Dropdown.Item>
+                            {vehicules.map((vehicle) => {
+                              console.log('Dropdown vehicle:', vehicle);
+                              return (
+                                <Dropdown.Item key={vehicle._id}>
+                                  {`🚗 ${vehicle.marque} ${vehicle.modele}${vehicle.immatriculation ? ` - ${vehicle.immatriculation}` : ''}`}
+                                </Dropdown.Item>
+                              );
+                            })}
+                          </Dropdown.Menu>
+                        </Dropdown>
+                      </Box>
 
                       <Grid.Container gap={2}>
                         <Grid xs={12} sm={6}>

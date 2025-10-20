@@ -37,12 +37,14 @@ export class DailyAssignment extends Document {
   @Prop([{
     description: { type: String, required: true },
     amount: { type: Number, required: true },
+    vehicule: { type: Types.ObjectId, ref: 'Vehicule' }, // Link to vehicle
     paymentMethod: { type: String, enum: ['cash', 'credit_card', 'check', 'other'], default: 'cash' },
     notes: { type: String, default: '' }
   }])
   fuelCosts: {
     description: string;
     amount: number;
+    vehicule: Vehicule; // Link to vehicle
     paymentMethod: string;
     notes: string;
   }[];

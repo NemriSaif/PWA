@@ -52,6 +52,7 @@ export class DailyAssignmentService {
       .populate('chantier')
       .populate('personnelAssignments.personnel')
       .populate('vehiculeAssignments.vehicule')
+      .populate('fuelCosts.vehicule')
       .sort({ date: -1 })
       .exec();
   }
@@ -62,6 +63,7 @@ export class DailyAssignmentService {
       .populate('chantier')
       .populate('personnelAssignments.personnel')
       .populate('vehiculeAssignments.vehicule')
+      .populate('fuelCosts.vehicule')
       .exec();
 
     if (!assignment) throw new NotFoundException('Daily assignment not found');
@@ -82,6 +84,7 @@ export class DailyAssignmentService {
       .populate('chantier')
       .populate('personnelAssignments.personnel')
       .populate('vehiculeAssignments.vehicule')
+      .populate('fuelCosts.vehicule')
       .exec();
   }
 
@@ -91,6 +94,7 @@ export class DailyAssignmentService {
       .populate('chantier')
       .populate('personnelAssignments.personnel')
       .populate('vehiculeAssignments.vehicule')
+      .populate('fuelCosts.vehicule')
       .sort({ date: -1 })
       .exec();
   }
@@ -106,6 +110,7 @@ export class DailyAssignmentService {
       .populate('chantier')
       .populate('personnelAssignments.personnel')
       .populate('vehiculeAssignments.vehicule')
+      .populate('fuelCosts.vehicule')
       .sort({ date: -1 })
       .exec();
   }
@@ -138,6 +143,7 @@ export class DailyAssignmentService {
       .populate('chantier')
       .populate('personnelAssignments.personnel')
       .populate('vehiculeAssignments.vehicule')
+      .populate('fuelCosts.vehicule')
       .exec();
 
     if (!updated) throw new NotFoundException('Daily assignment not found');
