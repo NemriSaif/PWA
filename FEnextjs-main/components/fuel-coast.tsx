@@ -3,66 +3,70 @@ import React, {useState} from 'react';
 import {Flex} from './styles/flex';
 import {Box} from './styles/box';
 
-export const FuelCosts = () => {
+interface FuelCostEntry {
+   id: string;
+   assignmentId: string;
+   date: string;
+   chantier: string;
+   description: string;
+   amount: number;
+   paymentMethod: string;
+   notes: string;
+}
+
+interface FuelCostsProps {
+   fuelCosts: FuelCostEntry[];
+   onRefresh: () => void;
+}
+
+export const FuelCosts = ({ fuelCosts, onRefresh }: FuelCostsProps) => {
    const [searchValue, setSearchValue] = useState('');
 
-   // Mock data
-   const fuelCosts = [
-      {id: 1, vehicle: 'TUN-1234', date: '2024-01-15', quantity: 50, price: 75.5, total: 3775, workSite: 'Construction Site A'},
-      {id: 2, vehicle: 'TUN-5678', date: '2024-01-15', quantity: 40, price: 75.5, total: 3020, workSite: 'Building Project B'},
-      {id: 3, vehicle: 'TUN-9012', date: '2024-01-14', quantity: 80, price: 75.5, total: 6040, workSite: 'Road Work C'},
-      {id: 4, vehicle: 'TUN-1234', date: '2024-01-14', quantity: 55, price: 75.5, total: 4152.5, workSite: 'Construction Site A'},
-   ];
-
    const columns = [
-      {name: 'ID', uid: 'id'},
-      {name: 'VEHICLE', uid: 'vehicle'},
       {name: 'DATE', uid: 'date'},
-      {name: 'QUANTITY (L)', uid: 'quantity'},
-      {name: 'PRICE/L (TND)', uid: 'price'},
-      {name: 'TOTAL (TND)', uid: 'total'},
-      {name: 'WORK SITE', uid: 'workSite'},
-      {name: 'ACTIONS', uid: 'actions'},
+      {name: 'WORK SITE', uid: 'chantier'},
+      {name: 'DESCRIPTION', uid: 'description'},
+      {name: 'AMOUNT (TND)', uid: 'amount'},
+      {name: 'PAYMENT', uid: 'paymentMethod'},
+      {name: 'NOTES', uid: 'notes'},
    ];
 
-   const renderCell = (fuelCost: any, columnKey: React.Key) => {
+   const renderCell = (fuelCost: FuelCostEntry, columnKey: React.Key) => {
       switch (columnKey) {
-         case 'id':
-            return <Text>{fuelCost.id}</Text>;
-         case 'vehicle':
-            return <Text b>{fuelCost.vehicle}</Text>;
          case 'date':
-            return <Text>{fuelCost.date}</Text>;
-         case 'quantity':
-            return <Text>{fuelCost.quantity}</Text>;
-         case 'price':
-            return <Text>{fuelCost.price.toFixed(2)}</Text>;
-         case 'total':
+            return <Text>{new Date(fuelCost.date).toLocaleDateString()}</Text>;
+         case 'chantier':
+            return <Text b>{fuelCost.chantier}</Text>;
+         case 'description':
+            return <Text>{fuelCost.description}</Text>;
+         case 'amount':
             return (
                <Text b color="success">
-                  {fuelCost.total.toFixed(2)} TND
+                  {fuelCost.amount.toFixed(2)} TND
                </Text>
             );
-         case 'workSite':
-            return <Text css={{fontSize: '$sm'}}>{fuelCost.workSite}</Text>;
-         case 'actions':
+         case 'paymentMethod':
             return (
-               <Flex justify="center" align="center">
-                  <Button size="xs" color="primary" auto flat>
-                     Edit
-                  </Button>
-                  <Button size="xs" color="error" auto flat css={{ml: '$4'}}>
-                     Delete
-                  </Button>
-               </Flex>
+               <Badge color={fuelCost.paymentMethod === 'cash' ? 'success' : 'primary'}>
+                  {fuelCost.paymentMethod}
+               </Badge>
             );
+         case 'notes':
+            return <Text css={{fontSize: '$sm'}}>{fuelCost.notes || '-'}</Text>;
          default:
-            return <Text>{fuelCost[columnKey]}</Text>;
+            return <Text>{fuelCost[columnKey as keyof FuelCostEntry]}</Text>;
       }
    };
 
+   // Filter fuel costs based on search
+   const filteredFuelCosts = fuelCosts.filter(fc => 
+      fc.description.toLowerCase().includes(searchValue.toLowerCase()) ||
+      fc.chantier.toLowerCase().includes(searchValue.toLowerCase())
+   );
+
    // Calculate total
-   const totalCost = fuelCosts.reduce((sum, item) => sum + item.total, 0);
+   const totalCost = fuelCosts.reduce((sum, item) => sum + item.amount, 0);
+   const totalEntries = fuelCosts.length;
 
    return (
       <Box css={{px: '$12', mt: '$8', '@xsMax': {px: '$10'}}}>
@@ -76,10 +80,12 @@ export const FuelCosts = () => {
                mb: '$8',
             }}
          >
-            <Text h3>Fuel Costs Management</Text>
-            <Button auto color="primary">
-               Add Fuel Entry
-            </Button>
+            <Text h3>Fuel Costs Overview</Text>
+            <Flex css={{gap: '$6'}}>
+               <Button auto color="primary" flat onClick={onRefresh}>
+                  Refresh
+               </Button>
+            </Flex>
          </Flex>
 
          {/* Summary Card */}
@@ -105,9 +111,9 @@ export const FuelCosts = () => {
                   minWidth: '200px',
                }}
             >
-               <Text css={{fontSize: '$sm', color: '$green800'}}>Total Quantity</Text>
+               <Text css={{fontSize: '$sm', color: '$green800'}}>Total Entries</Text>
                <Text h3 css={{color: '$green900', mt: '$2'}}>
-                  {fuelCosts.reduce((sum, item) => sum + item.quantity, 0)} L
+                  {totalEntries}
                </Text>
             </Box>
          </Flex>
@@ -120,48 +126,52 @@ export const FuelCosts = () => {
          >
             <Input
                clearable
-               placeholder="Search fuel entries..."
+               placeholder="Search by description or work site..."
                value={searchValue}
                onChange={(e) => setSearchValue(e.target.value)}
                css={{flex: 1, minWidth: '280px'}}
             />
-            <Input
-               type="date"
-               label="Filter by date"
-               css={{minWidth: '200px'}}
-            />
          </Flex>
 
          {/* Table */}
-         <Table
-            aria-label="Fuel costs table"
-            css={{
-               height: 'auto',
-               minWidth: '100%',
-            }}
-            selectionMode="none"
-         >
-            <Table.Header columns={columns}>
-               {(column) => (
-                  <Table.Column
-                     key={column.uid}
-                     hideHeader={column.uid === 'actions'}
-                     align={column.uid === 'actions' ? 'center' : 'start'}
-                  >
-                     {column.name}
-                  </Table.Column>
-               )}
-            </Table.Header>
-            <Table.Body items={fuelCosts}>
-               {(item) => (
-                  <Table.Row key={item.id}>
-                     {(columnKey) => (
-                        <Table.Cell>{renderCell(item, columnKey)}</Table.Cell>
-                     )}
-                  </Table.Row>
-               )}
-            </Table.Body>
-         </Table>
+         {filteredFuelCosts.length === 0 ? (
+            <Box css={{textAlign: 'center', py: '$20'}}>
+               <Text h4 color="$gray600">
+                  {fuelCosts.length === 0 
+                     ? 'No fuel costs recorded yet. Add fuel costs through Daily Assignments.' 
+                     : 'No matching fuel costs found.'}
+               </Text>
+            </Box>
+         ) : (
+            <Table
+               aria-label="Fuel costs table"
+               css={{
+                  height: 'auto',
+                  minWidth: '100%',
+               }}
+               selectionMode="none"
+            >
+               <Table.Header columns={columns}>
+                  {(column) => (
+                     <Table.Column
+                        key={column.uid}
+                        align="start"
+                     >
+                        {column.name}
+                     </Table.Column>
+                  )}
+               </Table.Header>
+               <Table.Body items={filteredFuelCosts}>
+                  {(item) => (
+                     <Table.Row key={item.id}>
+                        {(columnKey) => (
+                           <Table.Cell>{renderCell(item, columnKey)}</Table.Cell>
+                        )}
+                     </Table.Row>
+                  )}
+               </Table.Body>
+            </Table>
+         )}
       </Box>
    );
 };

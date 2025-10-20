@@ -1,32 +1,18 @@
-import {Input, Link, Navbar, Text} from '@nextui-org/react';
+import {Input, Link, Navbar, Text, Badge} from '@nextui-org/react';
 import React from 'react';
-import {FeedbackIcon} from '../icons/navbar/feedback-icon';
-import {GithubIcon} from '../icons/navbar/github-icon';
-import {SupportIcon} from '../icons/navbar/support-icon';
 import {SearchIcon} from '../icons/searchicon';
 import {Box} from '../styles/box';
 import {Flex} from '../styles/flex';
 import {BurguerButton} from './burguer-button';
 import {NotificationsDropdown} from './notifications-dropdown';
 import {UserDropdown} from './user-dropdown';
+import { InstallPWA } from '../install-pwa/InstallPWA';
 
 interface Props {
    children: React.ReactNode;
 }
 
 export const NavbarWrapper = ({children}: Props) => {
-   const collapseItems = [
-      'Profile',
-      'Dashboard',
-      'Activity',
-      'Analytics',
-      'System',
-      'Deployments',
-      'My Settings',
-      'Team Settings',
-      'Help & Feedback',
-      'Log Out',
-   ];
    return (
       <Box
          css={{
@@ -44,6 +30,7 @@ export const NavbarWrapper = ({children}: Props) => {
                'borderBottom': '1px solid $border',
                'justifyContent': 'space-between',
                'width': '100%',
+               'background': '$background',
                '@md': {
                   justifyContent: 'space-between',
                },
@@ -51,7 +38,6 @@ export const NavbarWrapper = ({children}: Props) => {
                '& .nextui-navbar-container': {
                   'border': 'none',
                   'maxWidth': '100%',
-
                   'gap': '$6',
                   '@md': {
                      justifyContent: 'space-between',
@@ -62,6 +48,24 @@ export const NavbarWrapper = ({children}: Props) => {
             <Navbar.Content showIn="md">
                <BurguerButton />
             </Navbar.Content>
+            
+            {/* Logo & Brand */}
+            <Navbar.Content hideIn="md" css={{ gap: '$8' }}>
+               <Text
+                  h3
+                  css={{
+                     fontWeight: '$bold',
+                     fontSize: '$xl',
+                     background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                     WebkitBackgroundClip: 'text',
+                     WebkitTextFillColor: 'transparent',
+                     m: 0,
+                  }}
+               >
+                  🌳 JninaTech
+               </Text>
+            </Navbar.Content>
+
             <Navbar.Content
                hideIn={'md'}
                css={{
@@ -82,7 +86,6 @@ export const NavbarWrapper = ({children}: Props) => {
                      'transition': 'all 0.2s ease',
                      '@xsMax': {
                         w: '100%',
-                        // mw: '300px',
                      },
                      '& .nextui-input-content--left': {
                         h: '100%',
@@ -93,57 +96,20 @@ export const NavbarWrapper = ({children}: Props) => {
                   placeholder="Search..."
                />
             </Navbar.Content>
+            
             <Navbar.Content>
                <Navbar.Content hideIn={'md'}>
-                  <Flex align={'center'} css={{gap: '$4'}}>
-                     <FeedbackIcon />
-                     <Text span>Feedback?</Text>
-                  </Flex>
+                  <InstallPWA />
                </Navbar.Content>
 
                <Navbar.Content>
                   <NotificationsDropdown />
                </Navbar.Content>
 
-               <Navbar.Content hideIn={'md'}>
-                  <SupportIcon />
-               </Navbar.Content>
-               <Navbar.Content>
-                  <Link
-                     href="https://github.com/"
-                     target={'_blank'}
-                  >
-                     <GithubIcon />
-                  </Link>
-               </Navbar.Content>
                <Navbar.Content>
                   <UserDropdown />
                </Navbar.Content>
             </Navbar.Content>
-
-            <Navbar.Collapse>
-               {collapseItems.map((item, index) => (
-                  <Navbar.CollapseItem
-                     key={item}
-                     activeColor="secondary"
-                     css={{
-                        color:
-                           index === collapseItems.length - 1 ? '$error' : '',
-                     }}
-                     isActive={index === 2}
-                  >
-                     <Link
-                        color="inherit"
-                        css={{
-                           minWidth: '100%',
-                        }}
-                        href="#"
-                     >
-                        {item}
-                     </Link>
-                  </Navbar.CollapseItem>
-               ))}
-            </Navbar.Collapse>
          </Navbar>
          {children}
       </Box>

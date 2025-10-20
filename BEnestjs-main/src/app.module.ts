@@ -6,6 +6,8 @@ import { ChantierModule } from './chantier/chantier.module';
 import { VehiculeModule } from './vehicule/vehicule.module';
 import { PersonnelModule } from './personnel/personnel.module';
 import { DailyAssignmentModule } from './daily-assignment/daily-assignment.module';
+import { FournisseurModule } from './fournisseur/fournisseur.module';
+import { StockModule } from './stock/stock.module';
 
 
 @Module({
@@ -15,6 +17,8 @@ import { DailyAssignmentModule } from './daily-assignment/daily-assignment.modul
     VehiculeModule,
     PersonnelModule,
     DailyAssignmentModule,
+    FournisseurModule,
+    StockModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -7,7 +7,9 @@ const STORES = {
   workSites: 'worksites',
   personnel: 'personnel',
   vehicles: 'vehicles',
-  dailyAssignments: 'dailyassignments'
+  dailyAssignments: 'dailyassignments',
+  suppliers: 'suppliers',
+  stock: 'stock',
 };
 
 // Initialize IndexedDB
@@ -78,12 +80,14 @@ export const isOnline = () => {
 };
 
 // Get store name for different entity types
-export const getStoreName = (entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment') => {
+export const getStoreName = (entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock') => {
   const mapping: Record<string, string> = {
     'chantier': STORES.workSites,
     'personnel': STORES.personnel,
     'vehicule': STORES.vehicles,
-    'daily-assignment': STORES.dailyAssignments
+    'daily-assignment': STORES.dailyAssignments,
+    'fournisseur': STORES.suppliers,
+    'stock': STORES.stock,
   };
   return mapping[entityType] || STORES.workSites;
 };

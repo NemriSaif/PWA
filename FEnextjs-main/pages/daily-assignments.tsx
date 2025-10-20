@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { offlineGet, apiPost, apiPatch, apiDelete } from '../utils/apiClient';
 import { DailyAssignments } from '../components/daily-assignments/daily-assignments';
 import { Loading, Text } from '@nextui-org/react';
 import { Box } from '../components/styles/box';
@@ -56,9 +56,6 @@ export interface DailyAssignmentData {
   notes?: string;
 }
 
-
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}`;
-
 const DailyAssignmentsPage = () => {
   const [assignments, setAssignments] = useState<DailyAssignmentData[]>([]);
   const [personnel, setPersonnel] = useState<PersonnelData[]>([]);
@@ -72,17 +69,17 @@ const DailyAssignmentsPage = () => {
       setLoading(true);
       setError(null);
       
-      const [assignmentsRes, personnelRes, vehiculesRes, chantiersRes] = await Promise.all([
-        axios.get<DailyAssignmentData[]>(`${API_URL}/daily-assignment`),
-        axios.get<PersonnelData[]>(`${API_URL}/personnel`),
-        axios.get<VehiculeData[]>(`${API_URL}/vehicule`),
-        axios.get<ChantierData[]>(`${API_URL}/chantier`),
+      const [assignmentsData, personnelData, vehiculesData, chantiersData] = await Promise.all([
+        offlineGet<DailyAssignmentData>('/daily-assignment', 'daily-assignment'),
+        offlineGet<PersonnelData>('/personnel', 'personnel'),
+        offlineGet<VehiculeData>('/vehicule', 'vehicule'),
+        offlineGet<ChantierData>('/chantier', 'chantier'),
       ]);
 
-      setAssignments(assignmentsRes.data);
-      setPersonnel(personnelRes.data);
-      setVehicules(vehiculesRes.data);
-      setChantiers(chantiersRes.data);
+      setAssignments(assignmentsData);
+      setPersonnel(personnelData);
+      setVehicules(vehiculesData);
+      setChantiers(chantiersData);
     } catch (error) {
       console.error('Error fetching data:', error);
       setError('Failed to load data. Please try again.');
@@ -97,14 +94,14 @@ const DailyAssignmentsPage = () => {
 
   const handleAddAssignment = async (data: DailyAssignmentData) => {
     try {
-      const response = await axios.post<DailyAssignmentData>(`${API_URL}/daily-assignment`, data);
-      setAssignments(prev => [response.data, ...prev]);
+      const response = await apiPost<DailyAssignmentData>('/daily-assignment', data);
+      setAssignments(prev => [response, ...prev]);
       return { success: true, message: 'Assignment created successfully!' };
     } catch (error: any) {
       console.error('Error creating assignment:', error);
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to create assignment'
+        message: error.message || 'Failed to create assignment'
       };
     }
   };
@@ -113,47 +110,48 @@ const DailyAssignmentsPage = () => {
     if (!data._id) return { success: false, message: 'Invalid assignment ID' };
 
     try {
-      const response = await axios.patch<DailyAssignmentData>(
-        `${API_URL}/daily-assignment/${data._id}`,
+      const response = await apiPatch<DailyAssignmentData>(
+        `/daily-assignment/${data._id}`,
         data
       );
-      setAssignments(prev => prev.map(a => (a._id === data._id ? response.data : a)));
+      setAssignments(prev => prev.map(a => (a._id === data._id ? response : a)));
       return { success: true, message: 'Assignment updated successfully!' };
     } catch (error: any) {
       console.error('Error updating assignment:', error);
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to update assignment'
+        message: error.message || 'Failed to update assignment'
       };
     }
   };
 
   const handleDeleteAssignment = async (id: string) => {
     try {
-      await axios.delete(`${API_URL}/daily-assignment/${id}`);
+      await apiDelete(`/daily-assignment/${id}`);
       setAssignments(prev => prev.filter(a => a._id !== id));
       return { success: true, message: 'Assignment deleted successfully!' };
     } catch (error: any) {
       console.error('Error deleting assignment:', error);
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to delete assignment'
+        message: error.message || 'Failed to delete assignment'
       };
     }
   };
 
   const handleMarkPersonnelPaid = async (assignmentId: string, personnelId: string) => {
     try {
-      const response = await axios.patch<DailyAssignmentData>(
-        `${API_URL}/daily-assignment/${assignmentId}/personnel/${personnelId}/pay`
+      const response = await apiPatch<DailyAssignmentData>(
+        `/daily-assignment/${assignmentId}/personnel/${personnelId}/pay`,
+        {}
       );
-      setAssignments(prev => prev.map(a => (a._id === assignmentId ? response.data : a)));
+      setAssignments(prev => prev.map(a => (a._id === assignmentId ? response : a)));
       return { success: true, message: 'Personnel marked as paid!' };
     } catch (error: any) {
       console.error('Error marking as paid:', error);
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to mark as paid'
+        message: error.message || 'Failed to mark as paid'
       };
     }
   };

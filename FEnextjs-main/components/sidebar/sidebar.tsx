@@ -1,9 +1,8 @@
 import React from 'react';
 import {Box} from '../styles/box';
 import {Sidebar} from './sidebar.styles';
-import {Avatar, Tooltip} from '@nextui-org/react';
+import {Avatar, Tooltip, Text} from '@nextui-org/react';
 import {Flex} from '../styles/flex';
-import {CompaniesDropdown} from './companies-dropdown';
 import {HomeIcon} from '../icons/sidebar/home-icon';
 import {AccountsIcon} from '../icons/sidebar/accounts-icon';
 import {CustomersIcon} from '../icons/sidebar/customers-icon';
@@ -16,13 +15,12 @@ import {FilterIcon} from '../icons/sidebar/filter-icon';
 import {useSidebarContext} from '../layout/layout-context';
 import {useRouter} from 'next/router';
 
-// You'll need to create these icons or use existing ones
-// For now, I'm using similar icons from your existing set
-const WorkSiteIcon = AccountsIcon; // Replace with custom icon
-const EmployeeIcon = CustomersIcon; // Replace with custom icon
-const VehicleIcon = ProductsIcon; // Replace with custom icon
-const FuelIcon = AccountsIcon; // Replace with custom icon
-const AssignmentIcon = ReportsIcon; // Replace with custom icon
+// Icon mappings
+const WorkSiteIcon = AccountsIcon;
+const EmployeeIcon = CustomersIcon;
+const VehicleIcon = ProductsIcon;
+const FuelIcon = AccountsIcon;
+const AssignmentIcon = ReportsIcon;
 
 export const SidebarWrapper = () => {
    const router = useRouter();
@@ -42,7 +40,33 @@ export const SidebarWrapper = () => {
 
          <Sidebar collapsed={collapsed}>
             <Sidebar.Header>
-               <CompaniesDropdown />
+               <Flex align="center" css={{ gap: '$6', px: '$6', py: '$4' }}>
+                  <Box
+                     css={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '$lg',
+                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '$2xl',
+                     }}
+                  >
+                     🌳
+                  </Box>
+                  <Text
+                     css={{
+                        fontWeight: '$bold',
+                        fontSize: '$lg',
+                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                     }}
+                  >
+                     JninaTech
+                  </Text>
+               </Flex>
             </Sidebar.Header>
             <Flex
                direction={'column'}
@@ -88,36 +112,19 @@ export const SidebarWrapper = () => {
                         href="/daily-assignments"
                      />
                      <SidebarItem
-                        isActive={router.pathname === '/reports'}
-                        title="Monthly Reports"
-                        icon={<ReportsIcon />}
-                        href="/reports"
+                        isActive={router.pathname === '/suppliers'}
+                        title="Suppliers"
+                        icon={<CustomersIcon />}
+                        href="/suppliers"
                      />
-                  </SidebarMenu>
-
-                  <SidebarMenu title="General">
                      <SidebarItem
-                        isActive={router.pathname === '/settings'}
-                        title="Settings"
-                        icon={<SettingsIcon />}
-                        href="/settings"
+                        isActive={router.pathname === '/stock'}
+                        title="Stock"
+                        icon={<ProductsIcon />}
+                        href="/stock"
                      />
                   </SidebarMenu>
                </Sidebar.Body>
-               <Sidebar.Footer>
-                  <Tooltip content={'Settings'} rounded color="primary">
-                     <SettingsIcon />
-                  </Tooltip>
-                  <Tooltip content={'Adjustments'} rounded color="primary">
-                     <FilterIcon />
-                  </Tooltip>
-                  <Tooltip content={'Profile'} rounded color="primary">
-                     <Avatar
-                        src="https://i.pravatar.cc/150?u=a042581f4e29026704d"
-                        size={'sm'}
-                     />
-                  </Tooltip>
-               </Sidebar.Footer>
             </Flex>
          </Sidebar>
       </Box>

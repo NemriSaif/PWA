@@ -16,7 +16,7 @@ const apiClient = axios.create({
 // Offline-aware GET request
 export const offlineGet = async <T = any>(
   endpoint: string,
-  entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment'
+  entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
 ): Promise<T[]> => {
   const storeName = getStoreName(entityType);
 
