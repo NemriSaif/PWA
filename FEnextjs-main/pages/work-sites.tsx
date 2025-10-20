@@ -45,14 +45,15 @@ const WorkSitesPage = () => {
         ...data,
         startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
         endDate: data.endDate ? new Date(data.endDate).toISOString() : undefined,
-      });
+      }, 'chantier');
       setWorkSites(prev => [...prev, response]);
       return { success: true, message: 'Work site added successfully!' };
     } catch (error: any) {
       console.error('Error adding work site:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to add work site' 
+        success: isQueued, 
+        message: isQueued ? '📝 Work site will be added when online' : (error.message || 'Failed to add work site')
       };
     }
   };
@@ -65,28 +66,30 @@ const WorkSitesPage = () => {
         ...data,
         startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
         endDate: data.endDate ? new Date(data.endDate).toISOString() : undefined,
-      });
+      }, 'chantier');
       setWorkSites(prev => prev.map(w => (w._id === data._id ? response : w)));
       return { success: true, message: 'Work site updated successfully!' };
     } catch (error: any) {
       console.error('Error editing work site:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to update work site' 
+        success: isQueued, 
+        message: isQueued ? '📝 Changes will be saved when online' : (error.message || 'Failed to update work site')
       };
     }
   };
 
   const handleDeleteWorkSite = async (id: string) => {
     try {
-      await apiDelete(`${API_ENDPOINT}/${id}`);
+      await apiDelete(`${API_ENDPOINT}/${id}`, 'chantier');
       setWorkSites(prev => prev.filter(w => w._id !== id));
       return { success: true, message: 'Work site deleted successfully!' };
     } catch (error: any) {
       console.error('Error deleting work site:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to delete work site' 
+        success: isQueued, 
+        message: isQueued ? '📝 Will be deleted when online' : (error.message || 'Failed to delete work site')
       };
     }
   };

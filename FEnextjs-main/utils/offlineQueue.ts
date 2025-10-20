@@ -6,6 +6,19 @@ import { initDB } from './offlineStorage';
 
 const QUEUE_STORE = 'pending_operations';
 
+// Generate UUID (fallback for older browsers)
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID v4 generator
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export interface PendingOperation {
   id: string; // UUID for queue item
   type: 'CREATE' | 'UPDATE' | 'DELETE';
@@ -27,7 +40,7 @@ export const addToQueue = async (operation: Omit<PendingOperation, 'id' | 'times
   
   const queueItem: PendingOperation = {
     ...operation,
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     timestamp: new Date().toISOString(),
     status: 'pending',
     retries: 0,

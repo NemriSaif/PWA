@@ -44,14 +44,15 @@ const EmployeesPage = () => {
 
   const handleAddPersonnel = async (data: PersonnelData) => {
     try {
-      const response = await apiPost<PersonnelData>(API_ENDPOINT, data);
+      const response = await apiPost<PersonnelData>(API_ENDPOINT, data, 'personnel');
       setPersonnel(prev => [...prev, response]);
       return { success: true, message: 'Personnel added successfully!' };
     } catch (error: any) {
       console.error('Error adding personnel:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to add personnel' 
+        success: isQueued, 
+        message: isQueued ? '📝 Personnel will be added when online' : (error.message || 'Failed to add personnel')
       };
     }
   };
@@ -60,42 +61,45 @@ const EmployeesPage = () => {
     if (!data._id) return { success: false, message: 'Invalid personnel ID' };
     
     try {
-      const response = await apiPatch<PersonnelData>(`${API_ENDPOINT}/${data._id}`, data);
+      const response = await apiPatch<PersonnelData>(`${API_ENDPOINT}/${data._id}`, data, 'personnel');
       setPersonnel(prev => prev.map(p => (p._id === data._id ? response : p)));
       return { success: true, message: 'Personnel updated successfully!' };
     } catch (error: any) {
       console.error('Error editing personnel:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to update personnel' 
+        success: isQueued, 
+        message: isQueued ? '📝 Changes will be saved when online' : (error.message || 'Failed to update personnel')
       };
     }
   };
 
   const handleDeletePersonnel = async (id: string) => {
     try {
-      await apiDelete(`${API_ENDPOINT}/${id}`);
+      await apiDelete(`${API_ENDPOINT}/${id}`, 'personnel');
       setPersonnel(prev => prev.filter(p => p._id !== id));
       return { success: true, message: 'Personnel deleted successfully!' };
     } catch (error: any) {
       console.error('Error deleting personnel:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to delete personnel' 
+        success: isQueued, 
+        message: isQueued ? '📝 Will be deleted when online' : (error.message || 'Failed to delete personnel')
       };
     }
   };
 
   const handleTogglePayment = async (id: string, isPayed: boolean) => {
     try {
-      const response = await apiPatch<PersonnelData>(`${API_ENDPOINT}/${id}`, { isPayed });
+      const response = await apiPatch<PersonnelData>(`${API_ENDPOINT}/${id}`, { isPayed }, 'personnel');
       setPersonnel(prev => prev.map(p => (p._id === id ? response : p)));
       return { success: true, message: 'Payment status updated!' };
     } catch (error: any) {
       console.error('Error updating payment status:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to update payment status' 
+        success: isQueued, 
+        message: isQueued ? '📝 Status will update when online' : (error.message || 'Failed to update payment status')
       };
     }
   };

@@ -2,7 +2,7 @@
 // This handles caching API responses in IndexedDB for offline access
 
 const DB_NAME = 'GMS_Offline_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 4; // Incremented to fix pending_operations keyPath
 const STORES = {
   workSites: 'worksites',
   personnel: 'personnel',
@@ -10,6 +10,7 @@ const STORES = {
   dailyAssignments: 'dailyassignments',
   suppliers: 'suppliers',
   stock: 'stock',
+  pendingOperations: 'pending_operations', // NEW: Queue for offline changes
 };
 
 // Initialize IndexedDB
@@ -24,9 +25,17 @@ export const initDB = (): Promise<IDBDatabase> => {
       const db = (event.target as IDBOpenDBRequest).result;
       
       // Create object stores if they don't exist
-      Object.values(STORES).forEach(storeName => {
+      Object.entries(STORES).forEach(([key, storeName]) => {
         if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: '_id' });
+          // Use 'id' as keyPath for pending_operations, '_id' for others
+          const keyPath = storeName === 'pending_operations' ? 'id' : '_id';
+          const objectStore = db.createObjectStore(storeName, { keyPath });
+          
+          // Add indexes for pending_operations
+          if (storeName === 'pending_operations') {
+            objectStore.createIndex('status', 'status', { unique: false });
+            objectStore.createIndex('timestamp', 'timestamp', { unique: false });
+          }
         }
       });
     };

@@ -42,14 +42,15 @@ const SuppliersPage = () => {
 
   const handleAddSupplier = async (data: SupplierData) => {
     try {
-      const response = await apiPost<SupplierData>(API_ENDPOINT, data);
+      const response = await apiPost<SupplierData>(API_ENDPOINT, data, 'fournisseur');
       setSuppliers(prev => [...prev, response]);
       return { success: true, message: 'Supplier added successfully!' };
     } catch (error: any) {
       console.error('Error adding supplier:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to add supplier' 
+        success: isQueued, 
+        message: isQueued ? '📝 Supplier will be added when online' : (error.message || 'Failed to add supplier')
       };
     }
   };
@@ -58,28 +59,30 @@ const SuppliersPage = () => {
     if (!data._id) return { success: false, message: 'Invalid supplier ID' };
     
     try {
-      const response = await apiPatch<SupplierData>(`${API_ENDPOINT}/${data._id}`, data);
+      const response = await apiPatch<SupplierData>(`${API_ENDPOINT}/${data._id}`, data, 'fournisseur');
       setSuppliers(prev => prev.map(s => (s._id === data._id ? response : s)));
       return { success: true, message: 'Supplier updated successfully!' };
     } catch (error: any) {
       console.error('Error editing supplier:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to update supplier' 
+        success: isQueued, 
+        message: isQueued ? '📝 Changes will be saved when online' : (error.message || 'Failed to update supplier')
       };
     }
   };
 
   const handleDeleteSupplier = async (id: string) => {
     try {
-      await apiDelete(`${API_ENDPOINT}/${id}`);
+      await apiDelete(`${API_ENDPOINT}/${id}`, 'fournisseur');
       setSuppliers(prev => prev.filter(s => s._id !== id));
       return { success: true, message: 'Supplier deleted successfully!' };
     } catch (error: any) {
       console.error('Error deleting supplier:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to delete supplier' 
+        success: isQueued, 
+        message: isQueued ? '📝 Will be deleted when online' : (error.message || 'Failed to delete supplier')
       };
     }
   };

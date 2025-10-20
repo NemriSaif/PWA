@@ -43,14 +43,15 @@ const StockPage = () => {
 
   const handleAddStock = async (data: StockData) => {
     try {
-      const response = await apiPost<StockData>(API_ENDPOINT, data);
+      const response = await apiPost<StockData>(API_ENDPOINT, data, 'stock');
       setStock(prev => [...prev, response]);
       return { success: true, message: 'Stock added successfully!' };
     } catch (error: any) {
       console.error('Error adding stock:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.response?.data?.message || 'Failed to add stock' 
+        success: isQueued, 
+        message: isQueued ? '📝 Stock will be added when online' : (error.response?.data?.message || error.message || 'Failed to add stock')
       };
     }
   };
@@ -59,28 +60,30 @@ const StockPage = () => {
     if (!data._id) return { success: false, message: 'Invalid stock ID' };
     
     try {
-      const response = await apiPatch<StockData>(`${API_ENDPOINT}/${data._id}`, data);
+      const response = await apiPatch<StockData>(`${API_ENDPOINT}/${data._id}`, data, 'stock');
       setStock(prev => prev.map(s => (s._id === data._id ? response : s)));
       return { success: true, message: 'Stock updated successfully!' };
     } catch (error: any) {
       console.error('Error editing stock:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to update stock' 
+        success: isQueued, 
+        message: isQueued ? '📝 Changes will be saved when online' : (error.message || 'Failed to update stock')
       };
     }
   };
 
   const handleDeleteStock = async (id: string) => {
     try {
-      await apiDelete(`${API_ENDPOINT}/${id}`);
+      await apiDelete(`${API_ENDPOINT}/${id}`, 'stock');
       setStock(prev => prev.filter(s => s._id !== id));
       return { success: true, message: 'Stock deleted successfully!' };
     } catch (error: any) {
       console.error('Error deleting stock:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.message || 'Failed to delete stock' 
+        success: isQueued, 
+        message: isQueued ? '📝 Will be deleted when online' : (error.message || 'Failed to delete stock')
       };
     }
   };
@@ -97,7 +100,7 @@ const StockPage = () => {
       const newQuantity = currentStock.quantity + quantity;
       const response = await apiPatch<StockData>(`${API_ENDPOINT}/${stockId}`, {
         quantity: newQuantity
-      });
+      }, 'stock');
 
       // Update local state
       setStock(prev => prev.map(s => (s._id === stockId ? response : s)));
@@ -108,9 +111,10 @@ const StockPage = () => {
       };
     } catch (error: any) {
       console.error('Error topping up stock:', error);
+      const isQueued = error.message?.includes('queued');
       return { 
-        success: false, 
-        message: error.response?.data?.message || 'Failed to top up stock' 
+        success: isQueued, 
+        message: isQueued ? '📝 Top-up will be saved when online' : (error.response?.data?.message || error.message || 'Failed to top up stock')
       };
     }
   };

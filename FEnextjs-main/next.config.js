@@ -151,7 +151,7 @@ const withPWA = require('next-pwa')({
 
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
+  swcMinify: false, // Disabled to fix _ is not defined error
 };
 
 module.exports = withPWA(nextConfig);

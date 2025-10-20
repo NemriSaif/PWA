@@ -1,6 +1,7 @@
 // Offline-aware API wrapper for PWA
 import axios, { AxiosRequestConfig } from 'axios';
 import { saveToOfflineStorage, getFromOfflineStorage, isOnline, getStoreName } from './offlineStorage';
+import { addToQueue } from './offlineQueue';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -49,25 +50,68 @@ export const offlineGet = async <T = any>(
   }
 };
 
-// Standard API methods (for POST, PATCH, DELETE)
-export const apiPost = async <T = any>(endpoint: string, data: any): Promise<T> => {
+// Standard API methods (for POST, PATCH, DELETE) with offline queue support
+export const apiPost = async <T = any>(
+  endpoint: string,
+  data: any,
+  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
+): Promise<T> => {
   if (!isOnline()) {
+    // Queue the operation for later sync
+    if (entityType) {
+      await addToQueue({
+        type: 'CREATE',
+        entityType,
+        endpoint,
+        data,
+      });
+      console.log('📝 Operation queued: CREATE', entityType);
+      throw new Error('📝 Operation queued for sync when online');
+    }
     throw new Error('❌ Cannot create new items while offline');
   }
   const response = await apiClient.post<T>(endpoint, data);
   return response.data;
 };
 
-export const apiPatch = async <T = any>(endpoint: string, data: any): Promise<T> => {
+export const apiPatch = async <T = any>(
+  endpoint: string,
+  data: any,
+  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
+): Promise<T> => {
   if (!isOnline()) {
+    // Queue the operation for later sync
+    if (entityType) {
+      await addToQueue({
+        type: 'UPDATE',
+        entityType,
+        endpoint,
+        data,
+      });
+      console.log('📝 Operation queued: UPDATE', entityType);
+      throw new Error('📝 Operation queued for sync when online');
+    }
     throw new Error('❌ Cannot update items while offline');
   }
   const response = await apiClient.patch<T>(endpoint, data);
   return response.data;
 };
 
-export const apiDelete = async (endpoint: string): Promise<void> => {
+export const apiDelete = async (
+  endpoint: string,
+  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
+): Promise<void> => {
   if (!isOnline()) {
+    // Queue the operation for later sync
+    if (entityType) {
+      await addToQueue({
+        type: 'DELETE',
+        entityType,
+        endpoint,
+      });
+      console.log('📝 Operation queued: DELETE', entityType);
+      throw new Error('📝 Operation queued for sync when online');
+    }
     throw new Error('❌ Cannot delete items while offline');
   }
   await apiClient.delete(endpoint);

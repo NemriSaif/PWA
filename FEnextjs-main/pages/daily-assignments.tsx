@@ -94,14 +94,15 @@ const DailyAssignmentsPage = () => {
 
   const handleAddAssignment = async (data: DailyAssignmentData) => {
     try {
-      const response = await apiPost<DailyAssignmentData>('/daily-assignment', data);
+      const response = await apiPost<DailyAssignmentData>('/daily-assignment', data, 'daily-assignment');
       setAssignments(prev => [response, ...prev]);
       return { success: true, message: 'Assignment created successfully!' };
     } catch (error: any) {
       console.error('Error creating assignment:', error);
+      const isQueued = error.message?.includes('queued');
       return {
-        success: false,
-        message: error.message || 'Failed to create assignment'
+        success: isQueued,
+        message: isQueued ? '📝 Assignment will be created when online' : (error.message || 'Failed to create assignment')
       };
     }
   };
@@ -112,29 +113,32 @@ const DailyAssignmentsPage = () => {
     try {
       const response = await apiPatch<DailyAssignmentData>(
         `/daily-assignment/${data._id}`,
-        data
+        data,
+        'daily-assignment'
       );
       setAssignments(prev => prev.map(a => (a._id === data._id ? response : a)));
       return { success: true, message: 'Assignment updated successfully!' };
     } catch (error: any) {
       console.error('Error updating assignment:', error);
+      const isQueued = error.message?.includes('queued');
       return {
-        success: false,
-        message: error.message || 'Failed to update assignment'
+        success: isQueued,
+        message: isQueued ? '📝 Changes will be saved when online' : (error.message || 'Failed to update assignment')
       };
     }
   };
 
   const handleDeleteAssignment = async (id: string) => {
     try {
-      await apiDelete(`/daily-assignment/${id}`);
+      await apiDelete(`/daily-assignment/${id}`, 'daily-assignment');
       setAssignments(prev => prev.filter(a => a._id !== id));
       return { success: true, message: 'Assignment deleted successfully!' };
     } catch (error: any) {
       console.error('Error deleting assignment:', error);
+      const isQueued = error.message?.includes('queued');
       return {
-        success: false,
-        message: error.message || 'Failed to delete assignment'
+        success: isQueued,
+        message: isQueued ? '📝 Will be deleted when online' : (error.message || 'Failed to delete assignment')
       };
     }
   };
@@ -143,15 +147,17 @@ const DailyAssignmentsPage = () => {
     try {
       const response = await apiPatch<DailyAssignmentData>(
         `/daily-assignment/${assignmentId}/personnel/${personnelId}/pay`,
-        {}
+        {},
+        'daily-assignment'
       );
       setAssignments(prev => prev.map(a => (a._id === assignmentId ? response : a)));
       return { success: true, message: 'Personnel marked as paid!' };
     } catch (error: any) {
       console.error('Error marking as paid:', error);
+      const isQueued = error.message?.includes('queued');
       return {
-        success: false,
-        message: error.message || 'Failed to mark as paid'
+        success: isQueued,
+        message: isQueued ? '📝 Will update when online' : (error.message || 'Failed to mark as paid')
       };
     }
   };

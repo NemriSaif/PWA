@@ -3,6 +3,8 @@ import type {AppProps} from 'next/app';
 import {createTheme, NextUIProvider} from '@nextui-org/react';
 import {ThemeProvider as NextThemesProvider} from 'next-themes';
 import {Layout} from '../components/layout/layout';
+import QueueIndicator from '../components/offline-queue/QueueIndicator';
+import { useEffect } from 'react';
 
 const lightTheme = createTheme({
    type: 'light',
@@ -19,6 +21,14 @@ const darkTheme = createTheme({
 });
 
 function MyApp({Component, pageProps}: AppProps) {
+   useEffect(() => {
+      // Initialize SIMPLE sync engine (auto-sync on online event)
+      if (typeof window !== 'undefined') {
+         // Use the ultra-simple version to avoid _ is not defined error
+         import('../utils/simpleSyncEngine');
+      }
+   }, []);
+
    return (
       <NextThemesProvider
          defaultTheme="system"
@@ -31,6 +41,7 @@ function MyApp({Component, pageProps}: AppProps) {
          <NextUIProvider>
             <Layout>
                <Component {...pageProps} />
+               <QueueIndicator />
             </Layout>
          </NextUIProvider>
       </NextThemesProvider>

@@ -45,13 +45,18 @@ const VehiclesPage = () => {
   // Add a new vehicle
   const handleAddVehicule = async (data: VehiculeData) => {
     try {
-      const response = await apiPost<VehiculeData>(API_ENDPOINT, data);
+      const response = await apiPost<VehiculeData>(API_ENDPOINT, data, 'vehicule');
       console.log('Vehicle added:', response);
 
       // Update list locally
       setVehicles(prev => [...prev, response]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding vehicle:', error);
+      if (error.message?.includes('queued')) {
+        alert('📝 Vehicle will be added when online');
+      } else {
+        alert(error.message || 'Failed to add vehicle');
+      }
     }
   };
 
@@ -59,22 +64,30 @@ const VehiclesPage = () => {
   const handleEditVehicule = async (data: VehiculeData) => {
     if (!data._id) return;
     try {
-      const response = await apiPatch<VehiculeData>(`${API_ENDPOINT}/${data._id}`, data);
+      const response = await apiPatch<VehiculeData>(`${API_ENDPOINT}/${data._id}`, data, 'vehicule');
       setVehicles(prev => prev.map(v => (v._id === data._id ? response : v)));
     } catch (error: any) {
       console.error('Error updating vehicle:', error);
-      alert(error.message || 'Failed to update vehicle');
+      if (error.message?.includes('queued')) {
+        alert('📝 Changes will be saved when online');
+      } else {
+        alert(error.message || 'Failed to update vehicle');
+      }
     }
   };
 
   // Delete vehicle
   const handleDeleteVehicule = async (id: string) => {
     try {
-      await apiDelete(`${API_ENDPOINT}/${id}`);
+      await apiDelete(`${API_ENDPOINT}/${id}`, 'vehicule');
       setVehicles(prev => prev.filter(v => v._id !== id));
     } catch (error: any) {
       console.error('Error deleting vehicle:', error);
-      alert(error.message || 'Failed to delete vehicle');
+      if (error.message?.includes('queued')) {
+        alert('📝 Vehicle will be deleted when online');
+      } else {
+        alert(error.message || 'Failed to delete vehicle');
+      }
     }
   };
 
