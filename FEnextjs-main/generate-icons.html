@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PWA Icon Generator</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 600px; margin: 0 auto; }
+        canvas { border: 1px solid #ccc; margin: 10px 0; }
+        .download-section { margin: 20px 0; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #0070f3; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #0051cc; }
+    </style>
+</head>
+<body>
+    <h1>🎨 PWA Icon Generator</h1>
+    <p>This will generate all the required PWA icons for your app</p>
+    
+    <div class="download-section">
+        <h3>Step 1: Click to generate and download all icons</h3>
+        <button onclick="generateAllIcons()">Generate All Icons</button>
+    </div>
+
+    <div id="canvases"></div>
+
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        function generateIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#0070f3');
+            gradient.addColorStop(1, '#00a8ff');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.15}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('GMS', size/2, size/2 - size * 0.1);
+            
+            // Add subtitle
+            ctx.font = `${size * 0.08}px Arial`;
+            ctx.fillText('Management', size/2, size/2 + size * 0.1);
+            
+            return canvas;
+        }
+        
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        function generateAllIcons() {
+            const container = document.getElementById('canvases');
+            container.innerHTML = '<h3>Generated Icons (click each to download):</h3>';
+            
+            sizes.forEach(size => {
+                const canvas = generateIcon(size);
+                const div = document.createElement('div');
+                div.style.margin = '10px 0';
+                
+                const label = document.createElement('p');
+                label.textContent = `icon-${size}x${size}.png`;
+                label.style.margin = '5px 0';
+                
+                canvas.style.maxWidth = '200px';
+                canvas.style.height = 'auto';
+                canvas.onclick = () => downloadCanvas(canvas, `icon-${size}x${size}.png`);
+                canvas.style.cursor = 'pointer';
+                canvas.title = 'Click to download';
+                
+                div.appendChild(label);
+                div.appendChild(canvas);
+                container.appendChild(div);
+                
+                // Auto download after a small delay
+                setTimeout(() => downloadCanvas(canvas, `icon-${size}x${size}.png`), size);
+            });
+            
+            alert('Icons generated! They will download automatically. Save them to FEnextjs-main/public/icons/ folder');
+        }
+    </script>
+</body>
+</html>
