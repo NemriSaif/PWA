@@ -2,7 +2,7 @@
 // This handles caching API responses in IndexedDB for offline access
 
 const DB_NAME = 'GMS_Offline_DB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = {
   workSites: 'worksites',
   personnel: 'personnel',
