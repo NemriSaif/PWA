@@ -8,7 +8,8 @@ import { PersonnelModule } from './personnel/personnel.module';
 import { DailyAssignmentModule } from './daily-assignment/daily-assignment.module';
 import { FournisseurModule } from './fournisseur/fournisseur.module';
 import { StockModule } from './stock/stock.module';
-
+import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -19,6 +20,8 @@ import { StockModule } from './stock/stock.module';
     DailyAssignmentModule,
     FournisseurModule,
     StockModule,
+    UserModule,
+    AuthModule, 
   ],
   controllers: [AppController],
   providers: [AppService],
