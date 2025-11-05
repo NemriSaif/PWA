@@ -4,6 +4,7 @@ import {NotificationIcon} from '../icons/navbar/notificationicon';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import { Box } from '../styles/box';
+import { getUserRole } from '../../utils/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -11,8 +12,16 @@ export const NotificationsDropdown = () => {
    const router = useRouter();
    const [lowStockItems, setLowStockItems] = useState<any[]>([]);
    const [loading, setLoading] = useState(true);
+   const userRole = getUserRole();
+   const canViewStock = userRole === 'manager' || userRole === 'fournisseur';
 
    useEffect(() => {
+      // Only fetch stock notifications for managers and suppliers
+      if (!canViewStock) {
+         setLoading(false);
+         return;
+      }
+
       const fetchLowStock = async () => {
          try {
             const response = await axios.get(`${API_URL}/stock`);
@@ -31,7 +40,7 @@ export const NotificationsDropdown = () => {
       // Refresh every 5 minutes
       const interval = setInterval(fetchLowStock, 5 * 60 * 1000);
       return () => clearInterval(interval);
-   }, []);
+   }, [canViewStock]);
 
    return (
       <Popover placement="bottom-right">
@@ -40,7 +49,7 @@ export const NotificationsDropdown = () => {
                <Badge 
                   color="error" 
                   content={lowStockItems.length} 
-                  isInvisible={lowStockItems.length === 0}
+                  isInvisible={lowStockItems.length === 0 || !canViewStock}
                   shape="circle"
                >
                   <NotificationIcon />
@@ -53,13 +62,17 @@ export const NotificationsDropdown = () => {
                   <Text b size="$lg">🔔 Notifications</Text>
                </Card.Header>
                <Card.Body css={{ py: 0 }}>
-                  {loading ? (
+                  {!canViewStock ? (
+                     <Box css={{ py: '$10', textAlign: 'center' }}>
+                        <Text size="$sm" color="$accents7">No notifications</Text>
+                     </Box>
+                  ) : loading ? (
                      <Box css={{ py: '$10', textAlign: 'center' }}>
                         <Text size="$sm" color="$accents7">Loading notifications...</Text>
                      </Box>
                   ) : lowStockItems.length === 0 ? (
                      <Box css={{ py: '$10', textAlign: 'center' }}>
-                        <Text size="$sm" color="$accents7">✅ All stock levels are OK</Text>
+                        <Text size="$sm" color="$accents7">All stock levels are OK</Text>
                      </Box>
                   ) : (
                      <Box css={{ display: 'flex', flexDirection: 'column', gap: '$4' }}>
@@ -78,7 +91,7 @@ export const NotificationsDropdown = () => {
                               onClick={() => router.push('/stock')}
                            >
                               <Text b size="$sm" color="error">
-                                 ⚠️ {item.name}
+                                 Low Stock: {item.name}
                               </Text>
                               <Text size="$xs" color="$accents7" css={{ mt: '$1' }}>
                                  Current: {item.quantity} {item.unit} | Min: {item.minQuantity} {item.unit}

@@ -3,6 +3,7 @@ import { offlineGet, apiPost, apiPatch, apiDelete } from '../utils/apiClient';
 import { DailyAssignments } from '../components/daily-assignments/daily-assignments';
 import { Loading, Text } from '@nextui-org/react';
 import { Box } from '../components/styles/box';
+import { getUserRole } from '../utils/auth';
 
 export interface PersonnelData {
   _id: string;
@@ -65,23 +66,33 @@ const DailyAssignmentsPage = () => {
   const [chantiers, setChantiers] = useState<ChantierData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const userRole = getUserRole();
+  const isPersonnel = userRole === 'personnel';
 
   const fetchAll = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const [assignmentsData, personnelData, vehiculesData, chantiersData] = await Promise.all([
-        offlineGet<DailyAssignmentData>('/daily-assignment', 'daily-assignment'),
-        offlineGet<PersonnelData>('/personnel', 'personnel'),
-        offlineGet<VehiculeData>('/vehicule', 'vehicule'),
-        offlineGet<ChantierData>('/chantier', 'chantier'),
-      ]);
+      if (isPersonnel) {
+        // Personnel only see their own assignments
+        const assignmentsData = await offlineGet<DailyAssignmentData>('/daily-assignment/my-assignments', 'daily-assignment');
+        setAssignments(assignmentsData);
+        // No need to fetch personnel/vehicules/chantiers for read-only view
+      } else {
+        // Managers see all assignments and resources
+        const [assignmentsData, personnelData, vehiculesData, chantiersData] = await Promise.all([
+          offlineGet<DailyAssignmentData>('/daily-assignment', 'daily-assignment'),
+          offlineGet<PersonnelData>('/personnel', 'personnel'),
+          offlineGet<VehiculeData>('/vehicule', 'vehicule'),
+          offlineGet<ChantierData>('/chantier', 'chantier'),
+        ]);
 
-      setAssignments(assignmentsData);
-      setPersonnel(personnelData);
-      setVehicules(vehiculesData);
-      setChantiers(chantiersData);
+        setAssignments(assignmentsData);
+        setPersonnel(personnelData);
+        setVehicules(vehiculesData);
+        setChantiers(chantiersData);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       setError('Failed to load data. Please try again.');
@@ -92,6 +103,7 @@ const DailyAssignmentsPage = () => {
 
   useEffect(() => {
     fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAddAssignment = async (data: DailyAssignmentData) => {
@@ -206,6 +218,7 @@ const DailyAssignmentsPage = () => {
       onDelete={handleDeleteAssignment}
       onMarkPaid={handleMarkPersonnelPaid}
       onRefresh={fetchAll}
+      readOnly={isPersonnel}
     />
   );
 };

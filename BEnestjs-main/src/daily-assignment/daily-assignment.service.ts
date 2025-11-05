@@ -4,11 +4,13 @@ import { Model } from 'mongoose';
 import { CreateDailyAssignmentDto } from './dto/create-daily-assignment.dto';
 import { UpdateDailyAssignmentDto } from './dto/update-daily-assignment.dto';
 import { DailyAssignment } from './schemas/daily-assignment.schema';
+import { Personnel } from '../personnel/schemas/personnel.schema';
 
 @Injectable()
 export class DailyAssignmentService {
   constructor(
     @InjectModel(DailyAssignment.name) private dailyAssignmentModel: Model<DailyAssignment>,
+    @InjectModel(Personnel.name) private personnelModel: Model<Personnel>,
   ) {}
 
   async create(createDto: CreateDailyAssignmentDto): Promise<DailyAssignment> {
@@ -106,6 +108,26 @@ export class DailyAssignmentService {
           $gte: new Date(startDate),
           $lte: new Date(endDate)
         }
+      })
+      .populate('chantier')
+      .populate('personnelAssignments.personnel')
+      .populate('vehiculeAssignments.vehicule')
+      .populate('fuelCosts.vehicule')
+      .sort({ date: -1 })
+      .exec();
+  }
+
+  async findByPersonnelUserId(userId: string): Promise<DailyAssignment[]> {
+    // First find the personnel record for this user
+    const personnel = await this.personnelModel.findOne({ userId }).exec();
+    if (!personnel) {
+      throw new NotFoundException('Personnel profile not found for this user');
+    }
+
+    // Find all assignments that include this personnel
+    return this.dailyAssignmentModel
+      .find({
+        'personnelAssignments.personnel': personnel._id
       })
       .populate('chantier')
       .populate('personnelAssignments.personnel')

@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { offlineGet, apiPost, apiPatch, apiDelete } from '../utils/apiClient';
 import { Suppliers } from '../components/suppliers/suppliers';
 import { Loading, Text } from '@nextui-org/react';
 import { Box } from '../components/styles/box';
+import axios from 'axios';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export interface SupplierData {
   _id?: string;
   name: string;
-  contact?: string;
+  email: string;
   phone?: string;
-  email?: string;
-  address?: string;
-  category?: string;
-  note?: string;
+  company?: string;
+  role?: string;
 }
-
-const API_ENDPOINT = '/fournisseur';
 
 const SuppliersPage = () => {
   const [suppliers, setSuppliers] = useState<SupplierData[]>([]);
@@ -26,8 +24,19 @@ const SuppliersPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await offlineGet<SupplierData>(API_ENDPOINT, 'fournisseur');
-      setSuppliers(data);
+      
+      // Fetch users with role=fournisseur
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/auth/users`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        params: {
+          role: 'fournisseur'
+        }
+      });
+      
+      setSuppliers(response.data);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
       setError('Failed to load suppliers. Please try again.');
@@ -42,15 +51,25 @@ const SuppliersPage = () => {
 
   const handleAddSupplier = async (data: SupplierData) => {
     try {
-      const response = await apiPost<SupplierData>(API_ENDPOINT, data, 'fournisseur');
-      setSuppliers(prev => [...prev, response]);
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, {
+        ...data,
+        role: 'fournisseur',
+        password: 'defaultPassword123' // You should prompt for password
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      setSuppliers(prev => [...prev, response.data.user]);
       return { success: true, message: 'Supplier added successfully!' };
     } catch (error: any) {
       console.error('Error adding supplier:', error);
       const isQueued = error.message?.includes('queued');
       return { 
-        success: isQueued, 
-        message: isQueued ? '📝 Supplier will be added when online' : (error.message || 'Failed to add supplier')
+        success: false, 
+        message: error.message || 'Failed to add supplier'
       };
     }
   };
@@ -59,30 +78,40 @@ const SuppliersPage = () => {
     if (!data._id) return { success: false, message: 'Invalid supplier ID' };
     
     try {
-      const response = await apiPatch<SupplierData>(`${API_ENDPOINT}/${data._id}`, data, 'fournisseur');
-      setSuppliers(prev => prev.map(s => (s._id === data._id ? response : s)));
+      const token = localStorage.getItem('token');
+      const response = await axios.patch(`${API_BASE_URL}/auth/users/${data._id}`, data, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      setSuppliers(prev => prev.map(s => (s._id === data._id ? response.data : s)));
       return { success: true, message: 'Supplier updated successfully!' };
     } catch (error: any) {
       console.error('Error editing supplier:', error);
-      const isQueued = error.message?.includes('queued');
       return { 
-        success: isQueued, 
-        message: isQueued ? '📝 Changes will be saved when online' : (error.message || 'Failed to update supplier')
+        success: false, 
+        message: error.message || 'Failed to update supplier'
       };
     }
   };
 
   const handleDeleteSupplier = async (id: string) => {
     try {
-      await apiDelete(`${API_ENDPOINT}/${id}`, 'fournisseur');
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_BASE_URL}/auth/users/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
       setSuppliers(prev => prev.filter(s => s._id !== id));
       return { success: true, message: 'Supplier deleted successfully!' };
     } catch (error: any) {
       console.error('Error deleting supplier:', error);
-      const isQueued = error.message?.includes('queued');
       return { 
-        success: isQueued, 
-        message: isQueued ? '📝 Will be deleted when online' : (error.message || 'Failed to delete supplier')
+        success: false, 
+        message: error.message || 'Failed to delete supplier'
       };
     }
   };

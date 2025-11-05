@@ -4,6 +4,9 @@ import { Chantier } from '../../chantier/schemas/chantier.schema';
 
 @Schema({ timestamps: true })
 export class Personnel extends Document {
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  userId?: Types.ObjectId; // Optional: Link to User account if worker has login
+
   @Prop({ required: true })
   name: string;
 

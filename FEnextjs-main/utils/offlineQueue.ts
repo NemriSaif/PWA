@@ -22,7 +22,7 @@ const generateUUID = (): string => {
 export interface PendingOperation {
   id: string; // UUID for queue item
   type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock';
+  entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'stock' | 'order';
   endpoint: string;
   data?: any;
   timestamp: string;

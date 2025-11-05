@@ -2,24 +2,52 @@ import { Button, Table, Text } from '@nextui-org/react';
 import React from 'react';
 import { Box } from '../styles/box';
 import { AddStockModal } from './AddStockModal';
+import { PlaceOrderModal } from './PlaceOrderModal';
 import { TopUpModal } from './TopUpModal';
+import { ReorderModal } from './ReorderModal';
 import { DeleteIcon } from '../icons/table/delete-icon';
+import { getUserRole } from '../../utils/auth';
 
-export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp }: any) => {
+export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp, onPlaceOrder, onReorder }: any) => {
   const [visible, setVisible] = React.useState(false);
+  const [placeOrderVisible, setPlaceOrderVisible] = React.useState(false);
   const [topUpVisible, setTopUpVisible] = React.useState(false);
+  const [reorderVisible, setReorderVisible] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState(null);
+
+  const userRole = getUserRole();
+  const isManager = userRole === 'manager';
+  const isSupplier = userRole === 'fournisseur';
 
   const handler = () => setVisible(true);
   const closeHandler = () => setVisible(false);
+
+  const handlePlaceOrder = () => setPlaceOrderVisible(true);
+  const closePlaceOrderHandler = () => setPlaceOrderVisible(false);
   
   const handleTopUp = (item: any) => {
     setSelectedItem(item);
     setTopUpVisible(true);
   };
+
+  const handleReorder = (item: any) => {
+    setSelectedItem(item);
+    // If item has sourceStockId, use reorder modal (quick reorder from same supplier)
+    // Otherwise, use place order modal to browse all suppliers
+    if (item.sourceStockId) {
+      setReorderVisible(true);
+    } else {
+      setPlaceOrderVisible(true);
+    }
+  };
   
   const closeTopUpHandler = () => {
     setTopUpVisible(false);
+    setSelectedItem(null);
+  };
+
+  const closeReorderHandler = () => {
+    setReorderVisible(false);
     setSelectedItem(null);
   };
 
@@ -34,11 +62,18 @@ export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp }
 
   return (
     <Box css={{ overflow: 'auto', height: '100%' }}>
-      <Text h3>Stock Inventory</Text>
+      <Text h3>{isManager ? 'My Stock' : 'Stock Inventory'}</Text>
       <Box css={{ marginBottom: '$10', display: 'flex', gap: '$5', flexWrap: 'wrap' }}>
-        <Button auto onPress={handler}>
-          Add Stock Item
-        </Button>
+        {isSupplier && (
+          <Button auto onPress={handler}>
+            Add Stock Item
+          </Button>
+        )}
+        {isManager && (
+          <Button auto color="primary" onPress={handlePlaceOrder}>
+            📦 Place Order
+          </Button>
+        )}
         <Button auto flat onPress={onRefresh}>
           Refresh
         </Button>
@@ -57,6 +92,7 @@ export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp }
           <Table.Column>NAME</Table.Column>
           <Table.Column>QUANTITY</Table.Column>
           <Table.Column>UNIT</Table.Column>
+          <Table.Column>PRICE</Table.Column>
           <Table.Column>CATEGORY</Table.Column>
           <Table.Column>SUPPLIER</Table.Column>
           <Table.Column>STATUS</Table.Column>
@@ -76,8 +112,11 @@ export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp }
                   </Text>
                 </Table.Cell>
                 <Table.Cell>{item.unit || '-'}</Table.Cell>
+                <Table.Cell>
+                  <Text b>{item.price ? `$${item.price}` : '-'}</Text>
+                </Table.Cell>
                 <Table.Cell>{item.category || '-'}</Table.Cell>
-                <Table.Cell>{item.fournisseur?.name || '-'}</Table.Cell>
+                <Table.Cell>{item.owner?.name || item.fournisseur?.name || '-'}</Table.Cell>
                 <Table.Cell>
                   {isLow ? (
                     <Text color="error" b>Low Stock!</Text>
@@ -87,7 +126,7 @@ export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp }
                 </Table.Cell>
                 <Table.Cell>
                   <Box css={{ display: 'flex', gap: '$5', flexWrap: 'wrap' }}>
-                    {isLow && (
+                    {isLow && isSupplier ? (
                       <Button
                         auto
                         size="sm"
@@ -96,14 +135,26 @@ export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp }
                       >
                         Top Up
                       </Button>
-                    )}
-                    <Button
-                      auto
-                      light
-                      color="error"
-                      icon={<DeleteIcon size={20} fill="#FF0080" />}
-                      onPress={() => handleDelete(item._id)}
-                    />
+                    ) : null}
+                    {isManager ? (
+                      <Button
+                        auto
+                        size="sm"
+                        color="primary"
+                        onPress={() => handleReorder(item)}
+                      >
+                        🔄 {item.sourceStockId ? 'Reorder' : 'Order More'}
+                      </Button>
+                    ) : null}
+                    {isSupplier ? (
+                      <Button
+                        auto
+                        light
+                        color="error"
+                        icon={<DeleteIcon size={20} fill="#FF0080" />}
+                        onPress={() => handleDelete(item._id)}
+                      />
+                    ) : null}
                   </Box>
                 </Table.Cell>
               </Table.Row>
@@ -116,6 +167,19 @@ export const StockList = ({ stock, onAdd, onEdit, onDelete, onRefresh, onTopUp }
         visible={visible}
         closeHandler={closeHandler}
         onAdd={onAdd}
+      />
+
+      <PlaceOrderModal
+        visible={placeOrderVisible}
+        closeHandler={closePlaceOrderHandler}
+        onOrderPlaced={onPlaceOrder}
+      />
+
+      <ReorderModal
+        visible={reorderVisible}
+        closeHandler={closeReorderHandler}
+        stockItem={selectedItem}
+        onReorder={onReorder}
       />
       
       <TopUpModal

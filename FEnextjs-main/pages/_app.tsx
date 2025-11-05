@@ -1,10 +1,12 @@
 import '../styles/globals.css';
+import '../styles/mobile-responsive.css';
 import type {AppProps} from 'next/app';
 import {createTheme, NextUIProvider} from '@nextui-org/react';
 import {ThemeProvider as NextThemesProvider} from 'next-themes';
 import {Layout} from '../components/layout/layout';
 import QueueIndicator from '../components/offline-queue/QueueIndicator';
 import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 const lightTheme = createTheme({
    type: 'light',
@@ -21,6 +23,12 @@ const darkTheme = createTheme({
 });
 
 function MyApp({Component, pageProps}: AppProps) {
+   const router = useRouter();
+   
+   // Pages that should NOT have the sidebar layout
+   const publicPages = ['/', '/login', '/signup', '/forgot-password', '/reset-password'];
+   const isPublicPage = publicPages.includes(router.pathname);
+
    useEffect(() => {
       // Initialize SIMPLE sync engine (auto-sync on online event)
       if (typeof window !== 'undefined') {
@@ -39,10 +47,17 @@ function MyApp({Component, pageProps}: AppProps) {
          }}
       >
          <NextUIProvider>
-            <Layout>
-               <Component {...pageProps} />
-               <QueueIndicator />
-            </Layout>
+            {isPublicPage ? (
+               <>
+                  <Component {...pageProps} />
+                  <QueueIndicator />
+               </>
+            ) : (
+               <Layout>
+                  <Component {...pageProps} />
+                  <QueueIndicator />
+               </Layout>
+            )}
          </NextUIProvider>
       </NextThemesProvider>
    );

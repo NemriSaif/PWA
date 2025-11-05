@@ -60,7 +60,7 @@ export const OfflineIndicator = () => {
         },
       }}
     >
-      <span style={{ fontSize: '20px' }}>{isOnline ? '✅' : '📴'}</span>
+      <span style={{ fontSize: '20px' }}>{isOnline ? '●' : '○'}</span>
       <Text
         css={{
           color: 'white',

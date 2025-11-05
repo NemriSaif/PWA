@@ -26,6 +26,14 @@ export class PersonnelService {
     return personnel;
   }
 
+  async findByUserId(userId: string): Promise<Personnel> {
+    const personnel = await this.personnelModel.findOne({ userId }).exec();
+    if (!personnel) {
+      throw new NotFoundException('Personnel profile not found for this user');
+    }
+    return personnel;
+  }
+
   async update(
     id: string,
     updatePersonnelDto: UpdatePersonnelDto,

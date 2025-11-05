@@ -142,8 +142,8 @@ export const syncQueue = async (): Promise<SyncResult> => {
 
 // Refresh all entity caches from server
 const refreshAllCaches = async () => {
-  const entityTypes = ['chantier', 'personnel', 'vehicule', 'daily-assignment', 'fournisseur', 'stock'] as const;
-  const endpoints = ['/chantier', '/personnel', '/vehicule', '/daily-assignment', '/fournisseur', '/stock'];
+  const entityTypes = ['chantier', 'personnel', 'vehicule', 'daily-assignment', 'stock'] as const;
+  const endpoints = ['/chantier', '/personnel', '/vehicule', '/daily-assignment', '/stock'];
   
   for (let i = 0; i < entityTypes.length; i++) {
     try {

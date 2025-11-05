@@ -14,10 +14,43 @@ const apiClient = axios.create({
   },
 });
 
+// Add request interceptor to include auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    // Get token from localStorage
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle auth errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid - redirect to login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Offline-aware GET request
 export const offlineGet = async <T = any>(
   endpoint: string,
-  entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
+  entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'stock' | 'order'
 ): Promise<T[]> => {
   const storeName = getStoreName(entityType);
 
@@ -54,7 +87,7 @@ export const offlineGet = async <T = any>(
 export const apiPost = async <T = any>(
   endpoint: string,
   data: any,
-  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
+  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'stock' | 'order'
 ): Promise<T> => {
   if (!isOnline()) {
     // Queue the operation for later sync
@@ -77,7 +110,7 @@ export const apiPost = async <T = any>(
 export const apiPatch = async <T = any>(
   endpoint: string,
   data: any,
-  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
+  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'stock' | 'order'
 ): Promise<T> => {
   if (!isOnline()) {
     // Queue the operation for later sync
@@ -99,7 +132,7 @@ export const apiPatch = async <T = any>(
 
 export const apiDelete = async (
   endpoint: string,
-  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock'
+  entityType?: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'stock' | 'order'
 ): Promise<void> => {
   if (!isOnline()) {
     // Queue the operation for later sync

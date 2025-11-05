@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Button, Input, Table, Text, Badge, Card, Grid, Dropdown } from '@nextui-org/react';
+import { Button, Input, Table, Text, Badge, Card, Tooltip, Grid } from '@nextui-org/react';
 import { Flex } from '../styles/flex';
 import { Box } from '../styles/box';
 import {
@@ -20,7 +20,12 @@ interface DailyAssignmentsProps {
   onDelete?: (id: string) => Promise<{ success: boolean; message: string }>;
   onMarkPaid?: (assignmentId: string, personnelId: string) => Promise<{ success: boolean; message: string }>;
   onRefresh?: () => void;
+  readOnly?: boolean;
 }
+
+type SortColumn = 'date' | 'chantier' | 'personnel' | 'vehicles' | 'totalCost';
+type SortDirection = 'asc' | 'desc';
+type ViewMode = 'table' | 'grid';
 
 export const DailyAssignments = ({
   assignments = [],
@@ -32,6 +37,7 @@ export const DailyAssignments = ({
   onDelete,
   onMarkPaid,
   onRefresh,
+  readOnly = false,
 }: DailyAssignmentsProps) => {
   const [searchValue, setSearchValue] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -39,13 +45,23 @@ export const DailyAssignments = ({
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Helper function to get chantier name
+  const getChantierName = (chantier: string | ChantierData): string => {
+    if (typeof chantier === 'object') return chantier.name;
+    const found = chantiers.find(c => c._id === chantier);
+    return found?.name || 'Unknown';
+  };
 
   const filteredAssignments = useMemo(() => {
     let filtered = Array.isArray(assignments) ? assignments : [];
 
     if (searchValue) {
       filtered = filtered.filter((a) => {
-        const chantierName = typeof a.chantier === 'object' ? a.chantier.name : '';
+        const chantierName = getChantierName(a.chantier);
         return (
           chantierName.toLowerCase().includes(searchValue.toLowerCase()) ||
           new Date(a.date).toLocaleDateString().includes(searchValue)
@@ -60,8 +76,43 @@ export const DailyAssignments = ({
       });
     }
 
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [assignments, searchValue, selectedDate]);
+    // Sort assignments
+    const sorted = [...filtered].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortColumn) {
+        case 'date':
+          aValue = new Date(a.date).getTime();
+          bValue = new Date(b.date).getTime();
+          break;
+        case 'chantier':
+          aValue = getChantierName(a.chantier).toLowerCase();
+          bValue = getChantierName(b.chantier).toLowerCase();
+          break;
+        case 'personnel':
+          aValue = a.personnelAssignments?.length || 0;
+          bValue = b.personnelAssignments?.length || 0;
+          break;
+        case 'vehicles':
+          aValue = a.vehiculeAssignments?.length || 0;
+          bValue = b.vehiculeAssignments?.length || 0;
+          break;
+        case 'totalCost':
+          aValue = a.totalCost || 0;
+          bValue = b.totalCost || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [assignments, searchValue, selectedDate, sortColumn, sortDirection, chantiers]);
 
   const stats = useMemo(() => {
     const todayAssignments = assignments.filter((a) => {
@@ -127,89 +178,32 @@ export const DailyAssignments = ({
     setLoading(false);
   };
 
-  const getChantierName = (chantier: string | ChantierData) => {
-    return typeof chantier === 'object' ? chantier.name : 'Unknown';
+  // Sort handler
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
   };
 
-  const columns = [
-    { name: 'DATE', uid: 'date' },
-    { name: 'WORK SITE', uid: 'chantier' },
-    { name: 'PERSONNEL', uid: 'personnel' },
-    { name: 'VEHICLES', uid: 'vehicles' },
-    { name: 'PERSONNEL COST', uid: 'personnelCost' },
-    { name: 'FUEL COST', uid: 'fuelCost' },
-    { name: 'TOTAL COST', uid: 'totalCost' },
-    { name: 'ACTIONS', uid: 'actions' },
-  ];
+  // Responsive view mode default
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 650 && viewMode === 'table') {
+        setViewMode('grid');
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [viewMode]);
 
-  const renderCell = (assignment: DailyAssignmentData, columnKey: React.Key) => {
-    switch (columnKey) {
-      case 'date':
-        return (
-          <Text b css={{ fontSize: '$sm' }}>
-            {new Date(assignment.date).toLocaleDateString('en-GB')}
-          </Text>
-        );
-      case 'chantier':
-        return <Text b>{getChantierName(assignment.chantier)}</Text>;
-      case 'personnel':
-        return (
-          <Text css={{ fontSize: '$sm' }}>
-            {assignment.personnelAssignments?.length || 0} assigned
-          </Text>
-        );
-      case 'vehicles':
-        return (
-          <Text css={{ fontSize: '$sm' }}>
-            {assignment.vehiculeAssignments?.length || 0} assigned
-          </Text>
-        );
-      case 'personnelCost':
-        return (
-          <Text b css={{ fontSize: '$sm', color: '$primary' }}>
-            {(assignment.totalPersonnelCost || 0).toFixed(2)} TND
-          </Text>
-        );
-      case 'fuelCost':
-        return (
-          <Text b css={{ fontSize: '$sm', color: '$warning' }}>
-            {(assignment.totalFuelCost || 0).toFixed(2)} TND
-          </Text>
-        );
-      case 'totalCost':
-        return (
-          <Text b css={{ fontSize: '$sm', color: '$success' }}>
-            {(assignment.totalCost || 0).toFixed(2)} TND
-          </Text>
-        );
-      case 'actions':
-        return (
-          <Flex css={{ gap: '$2' }}>
-            <Button
-              size="xs"
-              auto
-              flat
-              color="primary"
-              onClick={() => openEditModal(assignment)}
-              disabled={loading}
-            >
-              View/Edit
-            </Button>
-            <Button
-              size="xs"
-              auto
-              flat
-              color="error"
-              onClick={() => assignment._id && handleDelete(assignment._id)}
-              disabled={loading}
-            >
-              Delete
-            </Button>
-          </Flex>
-        );
-      default:
-        return <Text>{(assignment as any)[columnKey]}</Text>;
-    }
+  // Sort indicator
+  const getSortIndicator = (column: SortColumn) => {
+    if (sortColumn !== column) return ' ↕';
+    return sortDirection === 'asc' ? ' ↑' : ' ↓';
   };
 
   return (
@@ -275,12 +269,14 @@ export const DailyAssignments = ({
       {/* Header */}
       <Flex justify="between" align="center" wrap="wrap" css={{ gap: '$4', mb: '$6' }}>
         <Text h3 css={{ '@xsMax': { fontSize: '$xl' } }}>
-          Daily Assignments
+          {readOnly ? 'My Assignments' : 'Daily Assignments'}
         </Text>
         <Flex css={{ gap: '$4' }}>
-          <Button auto color="primary" onClick={openAddModal}>
-            + New Assignment
-          </Button>
+          {!readOnly && (
+            <Button auto color="primary" onClick={openAddModal}>
+              + New Assignment
+            </Button>
+          )}
           {onRefresh && (
             <Button auto flat onClick={onRefresh}>
               🔄 Refresh
@@ -289,11 +285,11 @@ export const DailyAssignments = ({
         </Flex>
       </Flex>
 
-      {/* Search & Date Filter */}
-      <Flex css={{ gap: '$4', mb: '$6' }} wrap="wrap" align="center">
+      {/* Search & Date Filter & View Toggle */}
+      <Flex css={{ gap: '$4', mb: '$6', flexWrap: 'wrap' }} align="center">
         <Input
           clearable
-          placeholder="Search by work site or date..."
+          placeholder="Search by work site..."
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           css={{ flex: 1, minWidth: '200px' }}
@@ -308,45 +304,259 @@ export const DailyAssignments = ({
         <Button auto flat onClick={() => setSelectedDate('')}>
           Clear Date
         </Button>
+        
+        {/* View Toggle */}
+        <Flex css={{ gap: '$2' }}>
+          <Tooltip content="Grid View">
+            <Button
+              auto
+              flat={viewMode !== 'grid'}
+              color={viewMode === 'grid' ? 'primary' : 'default'}
+              onClick={() => setViewMode('grid')}
+              css={{ minWidth: 'auto', px: '$8' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+            </Button>
+          </Tooltip>
+          <Tooltip content="Table View">
+            <Button
+              auto
+              flat={viewMode !== 'table'}
+              color={viewMode === 'table' ? 'primary' : 'default'}
+              onClick={() => setViewMode('table')}
+              css={{ minWidth: 'auto', px: '$8', '@xsMax': { display: 'none' } }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                <line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </Button>
+          </Tooltip>
+        </Flex>
       </Flex>
 
-      {/* Table */}
-      <Box css={{ overflowX: 'auto' }}>
-        <Table
-          aria-label="Daily assignments table"
-          css={{ minWidth: '100%' }}
-          selectionMode="none"
-          lined
-          hoverable
-        >
-          <Table.Header columns={columns}>
-            {(column) => (
-              <Table.Column
-                key={column.uid}
-                hideHeader={column.uid === 'actions'}
-                align={column.uid === 'actions' ? 'center' : 'start'}
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <Box css={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--nextui-colors-border)' }}>
+                <th 
+                  style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('date')}
+                >
+                  <Text b size="$xs">DATE{getSortIndicator('date')}</Text>
+                </th>
+                <th 
+                  style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('chantier')}
+                >
+                  <Text b size="$xs">WORK SITE{getSortIndicator('chantier')}</Text>
+                </th>
+                <th 
+                  style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('personnel')}
+                >
+                  <Text b size="$xs">PERSONNEL{getSortIndicator('personnel')}</Text>
+                </th>
+                <th 
+                  style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('vehicles')}
+                >
+                  <Text b size="$xs">VEHICLES{getSortIndicator('vehicles')}</Text>
+                </th>
+                <th 
+                  style={{ padding: '12px 16px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('totalCost')}
+                >
+                  <Text b size="$xs">TOTAL COST{getSortIndicator('totalCost')}</Text>
+                </th>
+                {!readOnly && (
+                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <Text b size="$xs">ACTIONS</Text>
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAssignments.map((assignment) => (
+                <tr 
+                  key={assignment._id}
+                  style={{ 
+                    borderBottom: '1px solid var(--nextui-colors-border)',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--nextui-colors-accents1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <td style={{ padding: '12px 16px' }}>
+                    <Text b size="$sm">{new Date(assignment.date).toLocaleDateString('en-GB')}</Text>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <Text b>{getChantierName(assignment.chantier)}</Text>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <Badge color="primary" variant="flat">
+                      {assignment.personnelAssignments?.length || 0} workers
+                    </Badge>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <Badge color="warning" variant="flat">
+                      {assignment.vehiculeAssignments?.length || 0} vehicles
+                    </Badge>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <Text b color="success">{(assignment.totalCost || 0).toFixed(2)} TND</Text>
+                  </td>
+                  {!readOnly && (
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <Flex css={{ gap: '$2', justifyContent: 'center' }}>
+                        <Button
+                          size="xs"
+                          auto
+                          flat
+                          color="primary"
+                          onClick={() => openEditModal(assignment)}
+                          disabled={loading}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="xs"
+                          auto
+                          flat
+                          color="error"
+                          onClick={() => assignment._id && handleDelete(assignment._id)}
+                          disabled={loading}
+                        >
+                          Delete
+                        </Button>
+                      </Flex>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Box>
+      )}
+
+      {/* Grid View */}
+      {viewMode === 'grid' && (
+        <Grid.Container gap={2}>
+          {filteredAssignments.map((assignment) => (
+            <Grid xs={12} sm={6} md={4} key={assignment._id}>
+              <Card
+                variant="bordered"
+                css={{
+                  p: '$12',
+                  w: '100%',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '$lg',
+                  },
+                }}
               >
-                {column.name}
-              </Table.Column>
-            )}
-          </Table.Header>
-          <Table.Body items={filteredAssignments}>
-            {(item) => (
-              <Table.Row key={item._id}>
-                {(columnKey) => <Table.Cell>{renderCell(item, columnKey)}</Table.Cell>}
-              </Table.Row>
-            )}
-          </Table.Body>
-        </Table>
-      </Box>
+                <Flex direction="column" css={{ gap: '$6' }}>
+                  {/* Header */}
+                  <Flex justify="between" align="start">
+                    <Box>
+                      <Text b size="$lg">{getChantierName(assignment.chantier)}</Text>
+                      <Text size="$sm" color="$accents7">
+                        {new Date(assignment.date).toLocaleDateString('en-GB')}
+                      </Text>
+                    </Box>
+                    <Badge color="success" variant="flat">
+                      {(assignment.totalCost || 0).toFixed(0)} TND
+                    </Badge>
+                  </Flex>
+
+                  {/* Details */}
+                  <Flex direction="column" css={{ gap: '$3' }}>
+                    <Flex align="center" css={{ gap: '$2' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                      </svg>
+                      <Text size="$sm">
+                        <Text b span>{assignment.personnelAssignments?.length || 0}</Text> Personnel
+                      </Text>
+                      <Text size="$xs" color="$accents7">
+                        ({(assignment.totalPersonnelCost || 0).toFixed(0)} TND)
+                      </Text>
+                    </Flex>
+                    <Flex align="center" css={{ gap: '$2' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="1" y="3" width="15" height="13"/>
+                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                        <circle cx="5.5" cy="18.5" r="2.5"/>
+                        <circle cx="18.5" cy="18.5" r="2.5"/>
+                      </svg>
+                      <Text size="$sm">
+                        <Text b span>{assignment.vehiculeAssignments?.length || 0}</Text> Vehicles
+                      </Text>
+                      <Text size="$xs" color="$accents7">
+                        ({(assignment.totalFuelCost || 0).toFixed(0)} TND)
+                      </Text>
+                    </Flex>
+                  </Flex>
+
+                  {/* Actions */}
+                  {!readOnly && (
+                    <Flex css={{ gap: '$2', mt: '$2' }}>
+                      <Button
+                        size="sm"
+                        auto
+                        flat
+                        color="primary"
+                        onClick={() => openEditModal(assignment)}
+                        disabled={loading}
+                        css={{ flex: 1 }}
+                      >
+                        View Details
+                      </Button>
+                      <Button
+                        size="sm"
+                        auto
+                        flat
+                        color="error"
+                        onClick={() => assignment._id && handleDelete(assignment._id)}
+                        disabled={loading}
+                        css={{ minWidth: 'auto', px: '$8' }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                      </Button>
+                    </Flex>
+                  )}
+                </Flex>
+              </Card>
+            </Grid>
+          ))}
+        </Grid.Container>
+      )}
 
       {/* Empty State */}
       {filteredAssignments.length === 0 && (
         <Box css={{ textAlign: 'center', py: '$20' }}>
           <Text h4 color="$accents7">
-            {searchValue || selectedDate ? 'No assignments found' : 'No assignments yet'}
+            {searchValue || selectedDate ? 'No assignments found' : readOnly ? 'No assignments assigned to you yet' : 'No assignments yet'}
           </Text>
-          {!searchValue && !selectedDate && (
+          {!searchValue && !selectedDate && !readOnly && (
             <Button auto color="primary" css={{ mt: '$4' }} onClick={openAddModal}>
               Create Your First Assignment
             </Button>
@@ -365,7 +575,6 @@ export const DailyAssignments = ({
           personnel={personnel}
           vehicules={vehicules}
           chantiers={chantiers}
-          onMarkPaid={onMarkPaid}
         />
       )}
     </Box>

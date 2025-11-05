@@ -5,7 +5,7 @@ const DB_NAME = 'GMS_Offline_DB';
 const API_URL = 'http://localhost:3001';
 
 // Open IndexedDB directly
-function openDB() {
+function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 4);
     request.onsuccess = () => resolve(request.result);
@@ -14,8 +14,8 @@ function openDB() {
 }
 
 // Get pending operations
-async function getPendingOps() {
-  const db = await openDB();
+async function getPendingOps(): Promise<any[]> {
+  const db = await openDB() as IDBDatabase;
   return new Promise((resolve, reject) => {
     const tx = db.transaction('pending_operations', 'readonly');
     const store = tx.objectStore('pending_operations');
@@ -29,8 +29,8 @@ async function getPendingOps() {
 }
 
 // Remove operation from queue
-async function removeOp(id) {
-  const db = await openDB();
+async function removeOp(id: any): Promise<void> {
+  const db = await openDB() as IDBDatabase;
   return new Promise((resolve, reject) => {
     const tx = db.transaction('pending_operations', 'readwrite');
     const store = tx.objectStore('pending_operations');
@@ -41,8 +41,8 @@ async function removeOp(id) {
 }
 
 // Update operation status
-async function updateOpStatus(id, status, error) {
-  const db = await openDB();
+async function updateOpStatus(id: any, status: string, error?: string): Promise<void> {
+  const db = await openDB() as IDBDatabase;
   return new Promise((resolve, reject) => {
     const tx = db.transaction('pending_operations', 'readwrite');
     const store = tx.objectStore('pending_operations');
@@ -64,9 +64,9 @@ async function updateOpStatus(id, status, error) {
 }
 
 // Simple fetch wrapper
-async function doFetch(endpoint, method, data) {
+async function doFetch(endpoint: string, method: string, data?: any): Promise<any> {
   const url = API_URL + endpoint;
-  const opts = {
+  const opts: RequestInit = {
     method: method,
     headers: { 'Content-Type': 'application/json' }
   };

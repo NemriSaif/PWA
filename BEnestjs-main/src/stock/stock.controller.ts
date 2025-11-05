@@ -1,20 +1,45 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { StockService } from './stock.service';
 import { CreateStockDto } from './dto/create-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../user/schemas/user.schema';
 
 @Controller('stock')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
   @Post()
-  create(@Body() createStockDto: CreateStockDto) {
-    return this.stockService.create(createStockDto);
+  @Roles(UserRole.FOURNISSEUR)
+  create(@Body() createStockDto: CreateStockDto, @Request() req) {
+    return this.stockService.create(createStockDto, req.user._id);
   }
 
   @Get()
-  findAll() {
-    return this.stockService.findAll();
+  findAll(@Request() req) {
+    return this.stockService.findAll(req.user._id, req.user.role);
+  }
+
+  @Get('suppliers/all')
+  findAllSuppliersStock(@Request() req) {
+    // Only managers can view all suppliers' stock
+    if (req.user.role !== 'manager') {
+      throw new Error('Only managers can view suppliers stock');
+    }
+    return this.stockService.findAllSuppliersStock();
   }
 
   @Get(':id')
@@ -23,12 +48,14 @@ export class StockController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateStockDto: UpdateStockDto) {
-    return this.stockService.update(id, updateStockDto);
+  @Roles(UserRole.FOURNISSEUR)
+  update(@Param('id') id: string, @Body() updateStockDto: UpdateStockDto, @Request() req) {
+    return this.stockService.update(id, updateStockDto, req.user._id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.stockService.remove(id);
+  @Roles(UserRole.FOURNISSEUR)
+  remove(@Param('id') id: string, @Request() req) {
+    return this.stockService.remove(id, req.user._id);
   }
 }

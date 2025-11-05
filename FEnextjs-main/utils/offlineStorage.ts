@@ -2,7 +2,7 @@
 // This handles caching API responses in IndexedDB for offline access
 
 const DB_NAME = 'GMS_Offline_DB';
-const DB_VERSION = 4; // Incremented to fix pending_operations keyPath
+const DB_VERSION = 5; // Incremented to add orders store
 const STORES = {
   workSites: 'worksites',
   personnel: 'personnel',
@@ -10,6 +10,7 @@ const STORES = {
   dailyAssignments: 'dailyassignments',
   suppliers: 'suppliers',
   stock: 'stock',
+  orders: 'orders',
   pendingOperations: 'pending_operations', // NEW: Queue for offline changes
 };
 
@@ -89,14 +90,14 @@ export const isOnline = () => {
 };
 
 // Get store name for different entity types
-export const getStoreName = (entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'fournisseur' | 'stock') => {
+export const getStoreName = (entityType: 'chantier' | 'personnel' | 'vehicule' | 'daily-assignment' | 'stock' | 'order') => {
   const mapping: Record<string, string> = {
     'chantier': STORES.workSites,
     'personnel': STORES.personnel,
     'vehicule': STORES.vehicles,
     'daily-assignment': STORES.dailyAssignments,
-    'fournisseur': STORES.suppliers,
     'stock': STORES.stock,
+    'order': STORES.orders,
   };
   return mapping[entityType] || STORES.workSites;
 };

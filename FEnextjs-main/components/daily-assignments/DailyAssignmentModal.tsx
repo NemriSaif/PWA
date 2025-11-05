@@ -5,12 +5,8 @@ import {
   Modal,
   Text,
   Loading,
-  Grid,
   Checkbox,
   Textarea,
-  Dropdown,
-  Card,
-  Badge,
 } from '@nextui-org/react';
 import React, { useState, useEffect } from 'react';
 import { Flex } from '../styles/flex';
@@ -22,7 +18,6 @@ import {
   ChantierData,
   PersonnelAssignment,
   VehiculeAssignment,
-  FuelCost,
 } from '../../pages/daily-assignments';
 
 interface DailyAssignmentModalProps {
@@ -34,7 +29,19 @@ interface DailyAssignmentModalProps {
   personnel: PersonnelData[];
   vehicules: VehiculeData[];
   chantiers: ChantierData[];
-  onMarkPaid?: (assignmentId: string, personnelId: string) => Promise<{ success: boolean; message: string }>;
+}
+
+interface PersonnelRow {
+  personnelId: string;
+  salary: number;
+  notes: string;
+  isPayed: boolean;
+}
+
+interface VehicleRow {
+  vehicleId: string;
+  fuelCost: number;
+  notes: string;
 }
 
 export const DailyAssignmentModal = ({
@@ -46,739 +53,181 @@ export const DailyAssignmentModal = ({
   personnel,
   vehicules,
   chantiers,
-  onMarkPaid,
 }: DailyAssignmentModalProps) => {
-  // Debug logging
-  useEffect(() => {
-    console.log('=== DailyAssignmentModal Props ===');
-    console.log('Personnel:', personnel);
-    console.log('Vehicules:', vehicules);
-    console.log('Chantiers:', chantiers);
-  }, [personnel, vehicules, chantiers]);
-
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<DailyAssignmentData>({
-    date: new Date().toISOString().split('T')[0],
-    chantier: '',
-    personnelAssignments: [],
-    vehiculeAssignments: [],
-    fuelCosts: [],
-    notes: '',
-  });
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [chantierId, setChantierId] = useState('');
+  const [notes, setNotes] = useState('');
+  const [personnelRows, setPersonnelRows] = useState<PersonnelRow[]>([]);
+  const [vehicleRows, setVehicleRows] = useState<VehicleRow[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Personnel selection state
-  const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string>>(new Set());
-  const [personnelSalaries, setPersonnelSalaries] = useState<{ [key: string]: number }>({});
-  const [personnelNotes, setPersonnelNotes] = useState<{ [key: string]: string }>({});
-
-  // Vehicle selection state
-  const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
-  const [vehicleNotes, setVehicleNotes] = useState<{ [key: string]: string }>({});
-
-  // Fuel costs state
-  const [fuelCostsList, setFuelCostsList] = useState<FuelCost[]>([]);
-
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        ...initialData,
-        date: new Date(initialData.date).toISOString().split('T')[0],
-      });
+    if (visible && !initialData) {
+      // Reset form for new assignment
+      setDate(new Date().toISOString().split('T')[0]);
+      setChantierId('');
+      setNotes('');
+      setPersonnelRows([]);
+      setVehicleRows([]);
+      setErrors({});
+    } else if (initialData) {
+      // Populate form for editing
+      setDate(new Date(initialData.date).toISOString().split('T')[0]);
+      setChantierId(typeof initialData.chantier === 'object' ? initialData.chantier._id : initialData.chantier);
+      setNotes(initialData.notes || '');
 
-      // Populate personnel
-      const personnelSet = new Set<string>();
-      const salaries: { [key: string]: number } = {};
-      const pNotes: { [key: string]: string } = {};
+      // Populate personnel rows
+      const pRows = initialData.personnelAssignments?.map(pa => ({
+        personnelId: typeof pa.personnel === 'object' ? pa.personnel._id! : pa.personnel,
+        salary: pa.salary || 0,
+        notes: pa.notes || '',
+        isPayed: pa.isPayed || false,
+      })) || [];
+      setPersonnelRows(pRows);
 
-      initialData.personnelAssignments?.forEach((pa) => {
-        const id = typeof pa.personnel === 'object' ? pa.personnel._id : pa.personnel;
-        personnelSet.add(id);
-        salaries[id] = pa.salary || 0;
-        pNotes[id] = pa.notes || '';
-      });
-
-      setSelectedPersonnel(personnelSet);
-      setPersonnelSalaries(salaries);
-      setPersonnelNotes(pNotes);
-
-      // Populate vehicles
-      const vehicleSet = new Set<string>();
-      const vNotes: { [key: string]: string } = {};
-
-      initialData.vehiculeAssignments?.forEach((va) => {
-        const id = typeof va.vehicule === 'object' ? va.vehicule._id : va.vehicule;
-        vehicleSet.add(id);
-        vNotes[id] = va.notes || '';
-      });
-
-      setSelectedVehicles(vehicleSet);
-      setVehicleNotes(vNotes);
-
-      // Populate fuel costs
-      setFuelCostsList(initialData.fuelCosts || []);
-    } else {
-      resetForm();
+      // Populate vehicle rows
+      const vRows = initialData.vehiculeAssignments?.map(va => {
+        // Find the fuel cost for this vehicle from fuelCosts array
+        const vehicleRegistration = typeof va.vehicule === 'object' ? va.vehicule.immatriculation : '';
+        const fuelCost = initialData.fuelCosts?.find(fc => 
+          fc.notes && vehicleRegistration && fc.notes.includes(vehicleRegistration)
+        );
+        
+        return {
+          vehicleId: typeof va.vehicule === 'object' ? va.vehicule._id! : va.vehicule,
+          fuelCost: fuelCost?.amount || 0,
+          notes: va.notes || '',
+        };
+      }) || [];
+      setVehicleRows(vRows);
     }
-  }, [initialData, visible]);
+  }, [visible, initialData]);
 
-  const resetForm = () => {
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      chantier: '',
-      personnelAssignments: [],
-      vehiculeAssignments: [],
-      fuelCosts: [],
-      notes: '',
-    });
-    setSelectedPersonnel(new Set());
-    setPersonnelSalaries({});
-    setPersonnelNotes({});
-    setSelectedVehicles(new Set());
-    setVehicleNotes({});
-    setFuelCostsList([]);
-    setErrors({});
-    setStep(1);
+  const addPersonnelRow = () => {
+    setPersonnelRows([...personnelRows, { personnelId: '', salary: 0, notes: '', isPayed: false }]);
   };
 
-  const validateStep = (currentStep: number): boolean => {
+  const removePersonnelRow = (index: number) => {
+    setPersonnelRows(personnelRows.filter((_, i) => i !== index));
+  };
+
+  const updatePersonnelRow = (index: number, field: keyof PersonnelRow, value: any) => {
+    const updated = [...personnelRows];
+    updated[index] = { ...updated[index], [field]: value };
+    setPersonnelRows(updated);
+  };
+
+  const addVehicleRow = () => {
+    setVehicleRows([...vehicleRows, { vehicleId: '', fuelCost: 0, notes: '' }]);
+  };
+
+  const removeVehicleRow = (index: number) => {
+    setVehicleRows(vehicleRows.filter((_, i) => i !== index));
+  };
+
+  const updateVehicleRow = (index: number, field: keyof VehicleRow, value: any) => {
+    const updated = [...vehicleRows];
+    updated[index] = { ...updated[index], [field]: value };
+    setVehicleRows(updated);
+  };
+
+  const calculateTotals = () => {
+    const totalPersonnelCost = personnelRows.reduce((sum, row) => sum + (row.salary || 0), 0);
+    const totalFuelCost = vehicleRows.reduce((sum, row) => sum + (row.fuelCost || 0), 0);
+    return {
+      totalPersonnelCost,
+      totalFuelCost,
+      totalCost: totalPersonnelCost + totalFuelCost,
+    };
+  };
+
+  const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    if (currentStep === 1) {
-      if (!formData.date) {
-        newErrors.date = 'Date is required';
-      }
-      if (!formData.chantier) {
-        newErrors.chantier = 'Work site is required';
-      }
+    if (!date) newErrors.date = 'Date is required';
+    if (!chantierId) newErrors.chantier = 'Work site is required';
+    if (personnelRows.length === 0) newErrors.personnel = 'At least one personnel is required';
+
+    // Check for duplicate personnel
+    const personnelIds = personnelRows.map(r => r.personnelId).filter(id => id);
+    const duplicatePersonnel = personnelIds.filter((id, index) => personnelIds.indexOf(id) !== index);
+    if (duplicatePersonnel.length > 0) {
+      newErrors.personnel = 'Duplicate personnel selected';
+    }
+
+    // Check for duplicate vehicles
+    const vehicleIds = vehicleRows.map(r => r.vehicleId).filter(id => id);
+    const duplicateVehicles = vehicleIds.filter((id, index) => vehicleIds.indexOf(id) !== index);
+    if (duplicateVehicles.length > 0) {
+      newErrors.vehicles = 'Duplicate vehicles selected';
+    }
+
+    // Check for empty personnel selections
+    if (personnelRows.some(r => !r.personnelId)) {
+      newErrors.personnel = 'Please select all personnel';
+    }
+
+    // Check for empty vehicle selections if any rows exist
+    if (vehicleRows.length > 0 && vehicleRows.some(r => !r.vehicleId)) {
+      newErrors.vehicles = 'Please select all vehicles';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
-    if (validateStep(step)) {
-      setStep(step + 1);
-    }
-  };
-
-  const handleBack = () => {
-    setStep(step - 1);
-  };
-
-  const handlePersonnelToggle = (personnelId: string) => {
-    const newSelected = new Set(selectedPersonnel);
-    if (newSelected.has(personnelId)) {
-      newSelected.delete(personnelId);
-      const newSalaries = { ...personnelSalaries };
-      const newNotes = { ...personnelNotes };
-      delete newSalaries[personnelId];
-      delete newNotes[personnelId];
-      setPersonnelSalaries(newSalaries);
-      setPersonnelNotes(newNotes);
-    } else {
-      newSelected.add(personnelId);
-      const person = personnel.find((p) => p._id === personnelId);
-      if (person && person.salary) {
-        setPersonnelSalaries({ ...personnelSalaries, [personnelId]: person.salary });
-      }
-    }
-    setSelectedPersonnel(newSelected);
-  };
-
-  const handleVehicleToggle = (vehicleId: string) => {
-    const newSelected = new Set(selectedVehicles);
-    if (newSelected.has(vehicleId)) {
-      newSelected.delete(vehicleId);
-      const newNotes = { ...vehicleNotes };
-      delete newNotes[vehicleId];
-      setVehicleNotes(newNotes);
-    } else {
-      newSelected.add(vehicleId);
-    }
-    setSelectedVehicles(newSelected);
-  };
-
-  const addFuelCost = () => {
-    setFuelCostsList([
-      ...fuelCostsList,
-      { description: '', amount: 0, vehicule: undefined, paymentMethod: 'cash', notes: '' },
-    ]);
-  };
-
-  const removeFuelCost = (index: number) => {
-    setFuelCostsList(fuelCostsList.filter((_, i) => i !== index));
-  };
-
-  const updateFuelCost = (index: number, field: keyof FuelCost, value: any) => {
-    const updated = [...fuelCostsList];
-    updated[index] = { ...updated[index], [field]: value };
-    setFuelCostsList(updated);
-  };
-
   const handleSubmit = () => {
-    if (!validateStep(1)) {
-      setStep(1);
-      return;
-    }
+    if (!validateForm()) return;
 
-    // Build personnel assignments
-    const personnelAssignments: PersonnelAssignment[] = Array.from(selectedPersonnel).map(
-      (personnelId) => ({
-        personnel: personnelId,
-        isPayed: false,
-        salary: personnelSalaries[personnelId] || 0,
-        notes: personnelNotes[personnelId] || '',
-      })
-    );
+    const totals = calculateTotals();
 
-    // Build vehicle assignments
-    const vehiculeAssignments: VehiculeAssignment[] = Array.from(selectedVehicles).map(
-      (vehicleId) => ({
-        vehicule: vehicleId,
-        notes: vehicleNotes[vehicleId] || '',
-      })
-    );
+    const personnelAssignments: PersonnelAssignment[] = personnelRows.map(row => ({
+      personnel: row.personnelId,
+      salary: row.salary,
+      notes: row.notes,
+      isPayed: row.isPayed,
+    }));
 
-    const submitData: DailyAssignmentData = {
-      ...formData,
+    const vehiculeAssignments: VehiculeAssignment[] = vehicleRows.map(row => ({
+      vehicule: row.vehicleId,
+      notes: row.notes,
+    }));
+
+    // Create fuel costs with vehicle registration in notes
+    const fuelCosts = vehicleRows.map(row => {
+      const vehicle = vehicules.find(v => v._id === row.vehicleId);
+      return {
+        description: `Fuel for ${vehicle?.type || 'vehicle'}`,
+        amount: row.fuelCost,
+        paymentMethod: 'cash' as const,
+        notes: vehicle?.immatriculation || '',
+      };
+    });
+
+    const data: DailyAssignmentData = {
+      ...initialData,
+      date,
+      chantier: chantierId,
       personnelAssignments,
       vehiculeAssignments,
-      fuelCosts: fuelCostsList.filter((fc) => fc.description && fc.amount > 0),
+      fuelCosts,
+      notes,
+      totalPersonnelCost: totals.totalPersonnelCost,
+      totalFuelCost: totals.totalFuelCost,
+      totalCost: totals.totalCost,
     };
 
-    console.log('=== Submitting Assignment Data ===');
-    console.log('Submit data:', JSON.stringify(submitData, null, 2));
-
-    if (onSubmit) {
-      onSubmit(submitData);
-    }
-  };
-
-  const calculateTotals = () => {
-    const totalPersonnel = Array.from(selectedPersonnel).reduce(
-      (sum, id) => sum + (personnelSalaries[id] || 0),
-      0
-    );
-    const totalFuel = fuelCostsList.reduce((sum, fc) => sum + (fc.amount || 0), 0);
-    return { totalPersonnel, totalFuel, total: totalPersonnel + totalFuel };
+    onSubmit?.(data);
   };
 
   const totals = calculateTotals();
-
-  const renderStepContent = () => {
-    switch (step) {
-      case 1:
-        return (
-          <Flex direction="column" css={{ gap: '$6' }}>
-            <Text h5>Basic Information</Text>
-
-            <Input
-              label="Date"
-              type="date"
-              bordered
-              fullWidth
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              color={errors.date ? 'error' : 'default'}
-              helperColor="error"
-              helperText={errors.date}
-              required
-            />
-
-            <Box css={{ width: '100%' }}>
-              <Text size="$sm" css={{ mb: '$2' }}>Work Site *</Text>
-              <Dropdown>
-                <Dropdown.Button
-                  flat
-                  css={{ 
-                    width: '100%', 
-                    justifyContent: 'flex-start',
-                    textAlign: 'left',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'block'
-                  }}
-                  color={errors.chantier ? 'error' : 'default'}
-                >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                    {formData.chantier
-                      ? `🏗️ ${chantiers.find((c) => c._id === formData.chantier)?.name || 'Select Work Site'}`
-                      : '🏗️ Select Work Site *'}
-                  </span>
-                </Dropdown.Button>
-                <Dropdown.Menu
-                  aria-label="Work site selection"
-                  selectionMode="single"
-                  selectedKeys={
-                    formData.chantier
-                      ? [typeof formData.chantier === 'string' ? formData.chantier : (formData.chantier as ChantierData)._id]
-                      : []
-                  }
-                  onSelectionChange={(keys) => {
-                    const selected = Array.from(keys)[0] as string;
-                    setFormData({ ...formData, chantier: selected });
-                    setErrors({ ...errors, chantier: '' });
-                  }}
-                >
-                  {chantiers.map((chantier) => (
-                    <Dropdown.Item key={chantier._id}>
-                      🏗️ {chantier.name} - {chantier.location}
-                    </Dropdown.Item>
-                  ))}
-                </Dropdown.Menu>
-              </Dropdown>
-              {errors.chantier && (
-                <Text size={12} color="error">
-                  {errors.chantier}
-                </Text>
-              )}
-            </Box>
-
-            <Textarea
-              label="General Notes"
-              bordered
-              fullWidth
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Any general notes about this assignment..."
-              minRows={2}
-            />
-          </Flex>
-        );
-
-      case 2:
-        return (
-          <Flex direction="column" css={{ gap: '$6' }}>
-            <Text h5>Assign Personnel ({selectedPersonnel.size} selected)</Text>
-
-            {personnel.length === 0 ? (
-              <Text color="$accents7">No personnel available</Text>
-            ) : (
-              <Box css={{ maxHeight: '400px', overflowY: 'auto' }}>
-                <Grid.Container gap={2}>
-                  {personnel.map((person) => {
-                    const isSelected = selectedPersonnel.has(person._id);
-                    return (
-                      <Grid xs={12} key={person._id}>
-                        <Card
-                          variant="bordered"
-                          css={{
-                            w: '100%',
-                            p: '$8',
-                            bg: isSelected ? '$primaryLight' : 'transparent',
-                            borderColor: isSelected ? '$primary' : '$border',
-                          }}
-                        >
-                          <Flex direction="column" css={{ gap: '$4' }}>
-                            <Flex justify="between" align="center">
-                              <Checkbox
-                                isSelected={isSelected}
-                                onChange={() => handlePersonnelToggle(person._id)}
-                                size="lg"
-                              >
-                                <Text b>{person.name}</Text>
-                              </Checkbox>
-                              {person.role && (
-                                <Badge color="primary" variant="flat">
-                                  {person.role}
-                                </Badge>
-                              )}
-                            </Flex>
-
-                            {isSelected && (
-                              <>
-                                <Input
-                                  label="Daily Salary (TND)"
-                                  type="number"
-                                  bordered
-                                  size="sm"
-                                  value={personnelSalaries[person._id]?.toString() || ''}
-                                  onChange={(e) =>
-                                    setPersonnelSalaries({
-                                      ...personnelSalaries,
-                                      [person._id]: parseFloat(e.target.value) || 0,
-                                    })
-                                  }
-                                  min={0}
-                                  step="0.01"
-                                />
-                                <Input
-                                  label="Notes"
-                                  bordered
-                                  size="sm"
-                                  value={personnelNotes[person._id] || ''}
-                                  onChange={(e) =>
-                                    setPersonnelNotes({
-                                      ...personnelNotes,
-                                      [person._id]: e.target.value,
-                                    })
-                                  }
-                                  placeholder="Any specific notes..."
-                                />
-                              </>
-                            )}
-                          </Flex>
-                        </Card>
-                      </Grid>
-                    );
-                  })}
-                </Grid.Container>
-              </Box>
-            )}
-
-            <Card variant="bordered" css={{ p: '$8', bg: '$primaryLight' }}>
-              <Flex justify="between" align="center">
-                <Text b>Total Personnel Cost:</Text>
-                <Text b color="$primary" size="$xl">
-                  {totals.totalPersonnel.toFixed(2)} TND
-                </Text>
-              </Flex>
-            </Card>
-          </Flex>
-        );
-
-      case 3:
-        console.log('Step 3 - Vehicles data:', vehicules);
-        return (
-          <Flex direction="column" css={{ gap: '$6' }}>
-            <Text h5>Assign Vehicles ({selectedVehicles.size} selected)</Text>
-
-            {vehicules.length === 0 ? (
-              <Text color="$accents7">No vehicles available</Text>
-            ) : (
-              <Box css={{ maxHeight: '400px', overflowY: 'auto' }}>
-                <Grid.Container gap={2}>
-                  {vehicules.map((vehicle) => {
-                    console.log('Rendering vehicle:', vehicle);
-                    const isSelected = selectedVehicles.has(vehicle._id);
-                    return (
-                      <Grid xs={12} key={vehicle._id}>
-                        <Card
-                          variant="bordered"
-                          css={{
-                            w: '100%',
-                            p: '$8',
-                            bg: isSelected ? '$warningLight' : 'transparent',
-                            borderColor: isSelected ? '$warning' : '$border',
-                          }}
-                        >
-                          <Flex direction="column" css={{ gap: '$4' }}>
-                            <Flex justify="between" align="center">
-                              <Checkbox
-                                isSelected={isSelected}
-                                onChange={() => handleVehicleToggle(vehicle._id)}
-                                size="lg"
-                              >
-                                <Text b>{vehicle.marque} {vehicle.modele}</Text>
-                                <Text size="$sm" color="$accents7">
-                                  {vehicle.type || 'Unknown Type'} {vehicle.immatriculation ? `- ${vehicle.immatriculation}` : ''}
-                                </Text>
-                              </Checkbox>
-                              {vehicle.immatriculation && (
-                                <Badge color="warning" variant="flat">
-                                  {vehicle.immatriculation}
-                                </Badge>
-                              )}
-                            </Flex>
-
-                            {isSelected && (
-                              <Input
-                                label="Notes"
-                                bordered
-                                size="sm"
-                                value={vehicleNotes[vehicle._id] || ''}
-                                onChange={(e) =>
-                                  setVehicleNotes({
-                                    ...vehicleNotes,
-                                    [vehicle._id]: e.target.value,
-                                  })
-                                }
-                                placeholder="Any specific notes..."
-                              />
-                            )}
-                          </Flex>
-                        </Card>
-                      </Grid>
-                    );
-                  })}
-                </Grid.Container>
-              </Box>
-            )}
-          </Flex>
-        );
-
-      case 4:
-        return (
-          <Flex direction="column" css={{ gap: '$6' }}>
-            <Flex justify="between" align="center">
-              <Text h5>Fuel Costs ({fuelCostsList.length})</Text>
-              <Button auto size="sm" onClick={addFuelCost}>
-                + Add Fuel Cost
-              </Button>
-            </Flex>
-
-            {fuelCostsList.length === 0 ? (
-              <Text color="$accents7">No fuel costs added</Text>
-            ) : (
-              <Box css={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {fuelCostsList.map((fuelCost, index) => (
-                  <Card key={index} variant="bordered" css={{ p: '$8', mb: '$4' }}>
-                    <Flex direction="column" css={{ gap: '$4' }}>
-                      <Flex justify="between" align="center">
-                        <Text b>Fuel Cost #{index + 1}</Text>
-                        <Button
-                          auto
-                          size="xs"
-                          flat
-                          color="error"
-                          onClick={() => removeFuelCost(index)}
-                        >
-                          Remove
-                        </Button>
-                      </Flex>
-
-                      <Input
-                        label="Description"
-                        bordered
-                        fullWidth
-                        value={fuelCost.description}
-                        onChange={(e) => updateFuelCost(index, 'description', e.target.value)}
-                        placeholder="e.g., Diesel for Truck 1"
-                      />
-
-                      <Box css={{ width: '100%' }}>
-                        <Text size="$sm" css={{ mb: '$2' }}>Vehicle (Optional)</Text>
-                        <Dropdown>
-                          <Dropdown.Button 
-                            flat 
-                            css={{ 
-                              width: '100%',
-                              justifyContent: 'flex-start',
-                              textAlign: 'left'
-                            }}
-                          >
-                            {(() => {
-                              console.log('Fuel cost vehicule value:', fuelCost.vehicule);
-                              console.log('Available vehicules:', vehicules);
-                              
-                              if (!fuelCost.vehicule) return 'Select Vehicle (Optional)';
-                              
-                              const vehicleId = typeof fuelCost.vehicule === 'object'
-                                ? fuelCost.vehicule._id
-                                : fuelCost.vehicule;
-                              
-                              const foundVehicle = vehicules.find(v => v._id === vehicleId);
-                              console.log('Found vehicle:', foundVehicle);
-                              
-                              if (foundVehicle) {
-                                return `🚗 ${foundVehicle.marque} ${foundVehicle.modele}${foundVehicle.immatriculation ? ` - ${foundVehicle.immatriculation}` : ''}`;
-                              }
-                              
-                              return 'Unknown Vehicle';
-                            })()}
-                          </Dropdown.Button>
-                          <Dropdown.Menu
-                            aria-label="Vehicle selection"
-                            selectionMode="single"
-                            selectedKeys={
-                              fuelCost.vehicule
-                                ? [
-                                    typeof fuelCost.vehicule === 'object'
-                                      ? fuelCost.vehicule._id
-                                      : fuelCost.vehicule,
-                                  ]
-                                : []
-                            }
-                            onSelectionChange={(keys) => {
-                              const selectedKey = Array.from(keys)[0] as string;
-                              console.log('Selected vehicle key:', selectedKey);
-                              updateFuelCost(index, 'vehicule', selectedKey === 'none' ? undefined : selectedKey);
-                            }}
-                          >
-                            <Dropdown.Item key="none">✖️ None</Dropdown.Item>
-                            {vehicules.map((vehicle) => {
-                              console.log('Dropdown vehicle:', vehicle);
-                              return (
-                                <Dropdown.Item key={vehicle._id}>
-                                  {`🚗 ${vehicle.marque} ${vehicle.modele}${vehicle.immatriculation ? ` - ${vehicle.immatriculation}` : ''}`}
-                                </Dropdown.Item>
-                              );
-                            })}
-                          </Dropdown.Menu>
-                        </Dropdown>
-                      </Box>
-
-                      <Grid.Container gap={2}>
-                        <Grid xs={12} sm={6}>
-                          <Input
-                            label="Amount (TND)"
-                            type="number"
-                            bordered
-                            fullWidth
-                            value={fuelCost.amount.toString()}
-                            onChange={(e) =>
-                              updateFuelCost(index, 'amount', parseFloat(e.target.value) || 0)
-                            }
-                            min={0}
-                            step="0.01"
-                          />
-                        </Grid>
-                        <Grid xs={12} sm={6}>
-                          <Dropdown>
-                            <Dropdown.Button flat css={{ width: '100%' }}>
-                              {fuelCost.paymentMethod === 'cash'
-                                ? '💵 Cash'
-                                : fuelCost.paymentMethod === 'credit_card'
-                                ? '💳 Credit Card'
-                                : fuelCost.paymentMethod === 'check'
-                                ? '📝 Check'
-                                : '📋 Other'}
-                            </Dropdown.Button>
-                            <Dropdown.Menu
-                              aria-label="Payment method"
-                              selectionMode="single"
-                              selectedKeys={[fuelCost.paymentMethod]}
-                              onSelectionChange={(keys) => {
-                                const method = Array.from(keys)[0] as string;
-                                updateFuelCost(index, 'paymentMethod', method);
-                              }}
-                            >
-                              <Dropdown.Item key="cash">💵 Cash</Dropdown.Item>
-                              <Dropdown.Item key="credit_card">💳 Credit Card</Dropdown.Item>
-                              <Dropdown.Item key="check">📝 Check</Dropdown.Item>
-                              <Dropdown.Item key="other">📋 Other</Dropdown.Item>
-                            </Dropdown.Menu>
-                          </Dropdown>
-                        </Grid>
-                      </Grid.Container>
-
-                      <Input
-                        label="Notes"
-                        bordered
-                        fullWidth
-                        value={fuelCost.notes}
-                        onChange={(e) => updateFuelCost(index, 'notes', e.target.value)}
-                        placeholder="Any additional notes..."
-                      />
-                    </Flex>
-                  </Card>
-                ))}
-              </Box>
-            )}
-
-            <Card variant="bordered" css={{ p: '$8', bg: '$warningLight' }}>
-              <Flex justify="between" align="center">
-                <Text b>Total Fuel Cost:</Text>
-                <Text b color="$warning" size="$xl">
-                  {totals.totalFuel.toFixed(2)} TND
-                </Text>
-              </Flex>
-            </Card>
-          </Flex>
-        );
-
-      case 5:
-        return (
-          <Flex direction="column" css={{ gap: '$6' }}>
-            <Text h5>Review & Confirm</Text>
-
-            <Card variant="bordered" css={{ p: '$10' }}>
-              <Text b css={{ mb: '$4' }}>
-                Assignment Details
-              </Text>
-              <Flex direction="column" css={{ gap: '$2' }}>
-                <Text>
-                  <Text b span>
-                    Date:
-                  </Text>{' '}
-                  {new Date(formData.date).toLocaleDateString('en-GB')}
-                </Text>
-                <Text>
-                  <Text b span>
-                    Work Site:
-                  </Text>{' '}
-                  {chantiers.find((c) => c._id === formData.chantier)?.name || 'N/A'}
-                </Text>
-              </Flex>
-            </Card>
-
-            <Grid.Container gap={2}>
-              <Grid xs={12} sm={4}>
-                <Card variant="bordered" css={{ p: '$8', w: '100%' }}>
-                  <Text css={{ fontSize: '$xs', color: '$accents7' }}>Personnel</Text>
-                  <Text h4 css={{ m: 0, mt: '$2' }}>
-                    {selectedPersonnel.size}
-                  </Text>
-                  <Text b color="$primary" css={{ mt: '$2' }}>
-                    {totals.totalPersonnel.toFixed(2)} TND
-                  </Text>
-                </Card>
-              </Grid>
-              <Grid xs={12} sm={4}>
-                <Card variant="bordered" css={{ p: '$8', w: '100%' }}>
-                  <Text css={{ fontSize: '$xs', color: '$accents7' }}>Vehicles</Text>
-                  <Text h4 css={{ m: 0, mt: '$2' }}>
-                    {selectedVehicles.size}
-                  </Text>
-                </Card>
-              </Grid>
-              <Grid xs={12} sm={4}>
-                <Card variant="bordered" css={{ p: '$8', w: '100%' }}>
-                  <Text css={{ fontSize: '$xs', color: '$accents7' }}>Fuel Costs</Text>
-                  <Text h4 css={{ m: 0, mt: '$2' }}>
-                    {fuelCostsList.length}
-                  </Text>
-                  <Text b color="$warning" css={{ mt: '$2' }}>
-                    {totals.totalFuel.toFixed(2)} TND
-                  </Text>
-                </Card>
-              </Grid>
-            </Grid.Container>
-
-            <Card variant="bordered" css={{ p: '$10', bg: '$successLight' }}>
-              <Flex justify="between" align="center">
-                <Text h4 css={{ m: 0 }}>
-                  Grand Total:
-                </Text>
-                <Text h3 css={{ m: 0 }} color="$success">
-                  {totals.total.toFixed(2)} TND
-                </Text>
-              </Flex>
-            </Card>
-          </Flex>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  const getStepTitle = () => {
-    switch (step) {
-      case 1:
-        return 'Basic Info';
-      case 2:
-        return 'Personnel';
-      case 3:
-        return 'Vehicles';
-      case 4:
-        return 'Fuel Costs';
-      case 5:
-        return 'Review';
-      default:
-        return '';
-    }
-  };
 
   return (
     <Modal
       closeButton
       open={visible}
       onClose={onClose}
-      width="800px"
+      width="900px"
       scroll
       blur
       preventClose={loading}
@@ -790,55 +239,291 @@ export const DailyAssignmentModal = ({
       }}
     >
       <Modal.Header>
-        <Flex direction="column" css={{ gap: '$2', w: '100%' }}>
-          <Text h4 css={{ m: 0 }}>
-            {initialData ? 'Edit Assignment' : 'New Daily Assignment'}
-          </Text>
-          <Text css={{ fontSize: '$sm', color: '$accents7' }}>
-            Step {step} of 5: {getStepTitle()}
-          </Text>
-        </Flex>
+        <Text h4>
+          {initialData ? 'Edit Daily Assignment' : 'New Daily Assignment'}
+        </Text>
       </Modal.Header>
-
       <Divider css={{ my: '$5' }} />
+      
+      <Modal.Body css={{ py: '$8' }}>
+        <Flex direction="column" css={{ gap: '$6' }}>
+          {/* Date & Work Site */}
+          <Flex css={{ gap: '$4', '@xsMax': { flexDirection: 'column' } }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                label="Date"
+                type="date"
+                bordered
+                fullWidth
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                disabled={loading}
+                color={errors.date ? 'error' : 'default'}
+                helperColor="error"
+                helperText={errors.date}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
+                Work Site *
+              </label>
+              <select
+                value={chantierId}
+                onChange={(e) => setChantierId(e.target.value)}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  border: errors.chantier ? '2px solid var(--nextui-colors-error)' : '1px solid var(--nextui-colors-border)',
+                  background: 'var(--nextui-colors-background)',
+                  color: 'var(--nextui-colors-text)',
+                  fontSize: '14px',
+                }}
+              >
+                <option value="">Select work site</option>
+                {chantiers.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {errors.chantier && (
+                <Text size="$xs" color="error" css={{ mt: '$2' }}>
+                  {errors.chantier}
+                </Text>
+              )}
+            </div>
+          </Flex>
 
-      {/* Progress Bar */}
-      <Box css={{ px: '$10', mb: '$6' }}>
-        <Flex css={{ gap: '$2' }}>
-          {[1, 2, 3, 4, 5].map((s) => (
-            <Box
-              key={s}
-              css={{
-                flex: 1,
-                height: '4px',
-                borderRadius: '$xs',
-                bg: s <= step ? '$primary' : '$accents3',
-                transition: 'background 0.3s',
-              }}
-            />
-          ))}
-        </Flex>
-      </Box>
-
-      <Modal.Body>{renderStepContent()}</Modal.Body>
-
-      <Divider css={{ my: '$5' }} />
-
-      <Modal.Footer>
-        <Flex justify="between" css={{ w: '100%' }}>
-          <Button auto flat onClick={step === 1 ? onClose : handleBack} disabled={loading}>
-            {step === 1 ? 'Cancel' : 'Back'}
-          </Button>
-          <Button auto onClick={step === 5 ? handleSubmit : handleNext} disabled={loading}>
-            {loading ? (
-              <Loading color="currentColor" size="sm" />
-            ) : step === 5 ? (
-              initialData ? 'Update Assignment' : 'Create Assignment'
-            ) : (
-              'Next'
+          {/* Personnel Section */}
+          <Box>
+            <Flex justify="between" align="center" css={{ mb: '$4' }}>
+              <Text b size="$lg">Personnel Assignments</Text>
+              <Button auto size="sm" onClick={addPersonnelRow} disabled={loading}>
+                + Add Personnel
+              </Button>
+            </Flex>
+            {errors.personnel && (
+              <Text size="$xs" color="error" css={{ mb: '$2' }}>
+                {errors.personnel}
+              </Text>
             )}
-          </Button>
+            <Flex direction="column" css={{ gap: '$3' }}>
+              {personnelRows.map((row, index) => (
+                <Flex key={index} css={{ gap: '$2', alignItems: 'start', '@xsMax': { flexWrap: 'wrap' } }}>
+                  <div style={{ flex: 2, minWidth: '150px' }}>
+                    <select
+                      value={row.personnelId}
+                      onChange={(e) => updatePersonnelRow(index, 'personnelId', e.target.value)}
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--nextui-colors-border)',
+                        background: 'var(--nextui-colors-background)',
+                        color: 'var(--nextui-colors-text)',
+                        fontSize: '14px',
+                      }}
+                    >
+                      <option value="">Select personnel</option>
+                      {personnel.map((p) => (
+                        <option key={p._id} value={p._id}>
+                          {p.name} - {p.role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1, minWidth: '100px' }}>
+                    <Input
+                      type="number"
+                      placeholder="Salary"
+                      bordered
+                      fullWidth
+                      size="sm"
+                      value={row.salary}
+                      onChange={(e) => updatePersonnelRow(index, 'salary', parseFloat(e.target.value) || 0)}
+                      disabled={loading}
+                      min={0}
+                      step="0.01"
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
+                    <Input
+                      placeholder="Notes (optional)"
+                      bordered
+                      fullWidth
+                      size="sm"
+                      value={row.notes}
+                      onChange={(e) => updatePersonnelRow(index, 'notes', e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <Checkbox
+                    isSelected={row.isPayed}
+                    onChange={(checked) => updatePersonnelRow(index, 'isPayed', checked)}
+                    isDisabled={loading}
+                    size="sm"
+                    css={{ mt: '$2' }}
+                  >
+                    Paid
+                  </Checkbox>
+                  <Button
+                    auto
+                    flat
+                    color="error"
+                    size="sm"
+                    onClick={() => removePersonnelRow(index)}
+                    disabled={loading}
+                    css={{ minWidth: 'auto', px: '$3', mt: '$1' }}
+                  >
+                    ✕
+                  </Button>
+                </Flex>
+              ))}
+              {personnelRows.length === 0 && (
+                <Text size="$sm" color="$accents7" css={{ textAlign: 'center', py: '$4' }}>
+                  No personnel added yet
+                </Text>
+              )}
+            </Flex>
+          </Box>
+
+          {/* Vehicles Section */}
+          <Box>
+            <Flex justify="between" align="center" css={{ mb: '$4' }}>
+              <Text b size="$lg">Vehicle Assignments & Fuel Costs</Text>
+              <Button auto size="sm" onClick={addVehicleRow} disabled={loading}>
+                + Add Vehicle
+              </Button>
+            </Flex>
+            {errors.vehicles && (
+              <Text size="$xs" color="error" css={{ mb: '$2' }}>
+                {errors.vehicles}
+              </Text>
+            )}
+            <Flex direction="column" css={{ gap: '$3' }}>
+              {vehicleRows.map((row, index) => (
+                <Flex key={index} css={{ gap: '$2', alignItems: 'start', '@xsMax': { flexWrap: 'wrap' } }}>
+                  <div style={{ flex: 2, minWidth: '150px' }}>
+                    <select
+                      value={row.vehicleId}
+                      onChange={(e) => updateVehicleRow(index, 'vehicleId', e.target.value)}
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--nextui-colors-border)',
+                        background: 'var(--nextui-colors-background)',
+                        color: 'var(--nextui-colors-text)',
+                        fontSize: '14px',
+                      }}
+                    >
+                      <option value="">Select vehicle</option>
+                      {vehicules.map((v) => (
+                        <option key={v._id} value={v._id}>
+                          {v.immatriculation} - {v.type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1, minWidth: '100px' }}>
+                    <Input
+                      type="number"
+                      placeholder="Fuel Cost"
+                      bordered
+                      fullWidth
+                      size="sm"
+                      value={row.fuelCost}
+                      onChange={(e) => updateVehicleRow(index, 'fuelCost', parseFloat(e.target.value) || 0)}
+                      disabled={loading}
+                      min={0}
+                      step="0.01"
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '120px' }}>
+                    <Input
+                      placeholder="Notes (optional)"
+                      bordered
+                      fullWidth
+                      size="sm"
+                      value={row.notes}
+                      onChange={(e) => updateVehicleRow(index, 'notes', e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <Button
+                    auto
+                    flat
+                    color="error"
+                    size="sm"
+                    onClick={() => removeVehicleRow(index)}
+                    disabled={loading}
+                    css={{ minWidth: 'auto', px: '$3', mt: '$1' }}
+                  >
+                    ✕
+                  </Button>
+                </Flex>
+              ))}
+              {vehicleRows.length === 0 && (
+                <Text size="$sm" color="$accents7" css={{ textAlign: 'center', py: '$4' }}>
+                  No vehicles added yet (optional)
+                </Text>
+              )}
+            </Flex>
+          </Box>
+
+          {/* General Notes */}
+          <Box>
+            <Textarea
+              label="General Notes (Optional)"
+              placeholder="Add any additional notes about this assignment..."
+              bordered
+              fullWidth
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={loading}
+              rows={3}
+            />
+          </Box>
+
+          {/* Summary */}
+          <Box css={{ 
+            p: '$4', 
+            borderRadius: '$lg', 
+            background: '$accents0',
+            border: '1px solid $border'
+          }}>
+            <Text b size="$lg" css={{ mb: '$3' }}>Cost Summary</Text>
+            <Flex direction="column" css={{ gap: '$2' }}>
+              <Flex justify="between">
+                <Text>Personnel Cost:</Text>
+                <Text b>{totals.totalPersonnelCost.toFixed(2)} TND</Text>
+              </Flex>
+              <Flex justify="between">
+                <Text>Fuel Cost:</Text>
+                <Text b>{totals.totalFuelCost.toFixed(2)} TND</Text>
+              </Flex>
+              <Divider css={{ my: '$2' }} />
+              <Flex justify="between">
+                <Text b size="$lg">Total Cost:</Text>
+                <Text b size="$lg" color="$primary">{totals.totalCost.toFixed(2)} TND</Text>
+              </Flex>
+            </Flex>
+          </Box>
         </Flex>
+      </Modal.Body>
+
+      <Divider css={{ my: '$5' }} />
+      <Modal.Footer>
+        <Button auto flat onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
+        <Button auto onClick={handleSubmit} disabled={loading}>
+          {loading ? <Loading color="currentColor" size="sm" /> : (initialData ? 'Update Assignment' : 'Create Assignment')}
+        </Button>
       </Modal.Footer>
     </Modal>
   );

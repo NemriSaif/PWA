@@ -40,7 +40,7 @@ export const FuelCosts = ({ fuelCosts, onRefresh }: FuelCostsProps) => {
          case 'chantier':
             return <Text b>{fuelCost.chantier}</Text>;
          case 'vehicule':
-            return <Text css={{color: '$accents9'}}>{fuelCost.vehicule || '🚗 Not specified'}</Text>;
+            return <Text css={{color: '$accents9'}}>{fuelCost.vehicule || 'Not specified'}</Text>;
          case 'description':
             return <Text>{fuelCost.description}</Text>;
          case 'amount':

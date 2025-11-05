@@ -2,9 +2,11 @@ import {styled} from '@nextui-org/react';
 
 export const SidebarWrapper = styled('div', {
    'backgroundColor': '$background',
-   'transition': 'transform 0.2s ease',
+   'transition': 'transform 0.3s ease',
    'height': '100%',
    'position': 'fixed',
+   'left': 0,
+   'top': 0,
    'transform': 'translateX(-100%)',
    'width': '16rem',
    'flexShrink': 0,
@@ -18,18 +20,32 @@ export const SidebarWrapper = styled('div', {
    'py': '$10',
    'px': '$6',
    '@md': {
-      marginLeft: '0',
-      display: 'flex',
+      // Desktop: Show by default, hide when collapsed=false
       position: 'static',
       height: '100vh',
       transform: 'translateX(0)',
+      display: 'flex',
    },
    'variants': {
       collapsed: {
          true: {
+            // When toggled ON: Show sidebar
             display: 'inherit',
-            marginLeft: '0 ',
             transform: 'translateX(0)',
+            '@md': {
+               // Desktop: sidebar visible
+               transform: 'translateX(0)',
+               position: 'static',
+            },
+         },
+         false: {
+            // When toggled OFF: Hide sidebar
+            transform: 'translateX(-100%)',
+            '@md': {
+               // Desktop: also hide when user closes it
+               transform: 'translateX(-100%)',
+               position: 'fixed',
+            },
          },
       },
    },

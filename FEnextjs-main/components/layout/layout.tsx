@@ -6,13 +6,14 @@ import {SidebarContext} from './layout-context';
 import {WrapperLayout} from './layout.styles';
 import {OfflineIndicator} from '../offline-indicator/OfflineIndicator';
 import {InstallPWA} from '../install-pwa/InstallPWA';
+import {ProtectedRoute} from '../ProtectedRoute';
 
 interface Props {
    children: React.ReactNode;
 }
 
 export const Layout = ({children}: Props) => {
-   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+   const [sidebarOpen, setSidebarOpen] = React.useState(true); // Default open for desktop
    const [_, setLocked] = useLockedBody(false);
    const handleToggleSidebar = () => {
       setSidebarOpen(!sidebarOpen);
@@ -20,18 +21,20 @@ export const Layout = ({children}: Props) => {
    };
 
    return (
-      <SidebarContext.Provider
-         value={{
-            collapsed: sidebarOpen,
-            setCollapsed: handleToggleSidebar,
-         }}
-      >
-         <WrapperLayout>
-            <SidebarWrapper />
-            <NavbarWrapper>{children}</NavbarWrapper>
-            <OfflineIndicator />
-            <InstallPWA />
-         </WrapperLayout>
-      </SidebarContext.Provider>
+      <ProtectedRoute>
+         <SidebarContext.Provider
+            value={{
+               collapsed: sidebarOpen,
+               setCollapsed: handleToggleSidebar,
+            }}
+         >
+            <WrapperLayout>
+               <SidebarWrapper />
+               <NavbarWrapper>{children}</NavbarWrapper>
+               <OfflineIndicator />
+               <InstallPWA />
+            </WrapperLayout>
+         </SidebarContext.Provider>
+      </ProtectedRoute>
    );
 };

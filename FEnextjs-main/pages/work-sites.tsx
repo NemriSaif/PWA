@@ -3,6 +3,7 @@ import { WorkSites } from '../components/work-site/work-sites';
 import { Loading, Text } from '@nextui-org/react';
 import { Box } from '../components/styles/box';
 import { offlineGet, apiPost, apiPatch, apiDelete } from '../utils/apiClient';
+import { getUserRole } from '../utils/auth';
 
 export interface WorkSiteData {
   _id?: string;
@@ -20,13 +21,31 @@ const WorkSitesPage = () => {
   const [workSites, setWorkSites] = useState<WorkSiteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const userRole = getUserRole();
+  const isPersonnel = userRole === 'personnel';
 
   const fetchWorkSites = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await offlineGet<WorkSiteData>(API_ENDPOINT, 'chantier');
-      setWorkSites(data);
+      
+      if (isPersonnel) {
+        // Personnel see work sites from their assignments
+        const assignments = await offlineGet<any>('/daily-assignment/my-assignments', 'daily-assignment');
+        // Extract unique work sites from assignments
+        const uniqueWorkSites = new Map<string, WorkSiteData>();
+        assignments.forEach((assignment: any) => {
+          const chantier = assignment.chantier;
+          if (chantier && chantier._id) {
+            uniqueWorkSites.set(chantier._id, chantier);
+          }
+        });
+        setWorkSites(Array.from(uniqueWorkSites.values()));
+      } else {
+        // Managers see all work sites
+        const data = await offlineGet<WorkSiteData>(API_ENDPOINT, 'chantier');
+        setWorkSites(data);
+      }
     } catch (error) {
       console.error('Error fetching work sites:', error);
       setError('Failed to load work sites. Please try again.');
@@ -130,6 +149,7 @@ const WorkSitesPage = () => {
       onEdit={handleEditWorkSite}
       onDelete={handleDeleteWorkSite}
       onRefresh={fetchWorkSites}
+      readOnly={isPersonnel}
     />
   );
 };

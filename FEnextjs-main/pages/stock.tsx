@@ -3,13 +3,16 @@ import { offlineGet, apiPost, apiPatch, apiDelete } from '../utils/apiClient';
 import { StockList } from '../components/stock/stock-list';
 import { Loading, Text } from '@nextui-org/react';
 import { Box } from '../components/styles/box';
+import { getUserRole } from '../utils/auth';
 
 export interface StockData {
   _id?: string;
   name: string;
   quantity: number;
+  price?: number;
   unit?: string;
   category?: string;
+  owner?: any;
   fournisseur?: any;
   chantier?: any;
   minQuantity?: number;
@@ -119,6 +122,38 @@ const StockPage = () => {
     }
   };
 
+  const handlePlaceOrder = async (orderData: any) => {
+    try {
+      const response = await apiPost('/order', orderData, 'order');
+      return { success: true, message: '✅ Order placed successfully!' };
+    } catch (error: any) {
+      console.error('Error placing order:', error);
+      const isQueued = error.message?.includes('queued');
+      return { 
+        success: isQueued, 
+        message: isQueued ? '📝 Order will be placed when online' : (error.response?.data?.message || error.message || 'Failed to place order')
+      };
+    }
+  };
+
+  const handleReorder = async (orderData: { stockItemId: string; quantity: number; notes?: string }) => {
+    try {
+      const response = await apiPost('/order', {
+        stockItem: orderData.stockItemId,
+        quantity: orderData.quantity,
+        notes: orderData.notes,
+      }, 'order');
+      return { success: true, message: '✅ Reorder placed successfully!' };
+    } catch (error: any) {
+      console.error('Error placing reorder:', error);
+      const isQueued = error.message?.includes('queued');
+      return { 
+        success: isQueued, 
+        message: isQueued ? '📝 Reorder will be placed when online' : (error.response?.data?.message || error.message || 'Failed to place reorder')
+      };
+    }
+  };
+
   if (loading) {
     return (
       <Box css={{ 
@@ -156,6 +191,8 @@ const StockPage = () => {
       onDelete={handleDeleteStock}
       onRefresh={fetchStock}
       onTopUp={handleTopUp}
+      onPlaceOrder={handlePlaceOrder}
+      onReorder={handleReorder}
     />
   );
 };

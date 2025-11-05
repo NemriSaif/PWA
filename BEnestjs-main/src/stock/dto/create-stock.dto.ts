@@ -7,6 +7,10 @@ export class CreateStockDto {
   @IsNumber()
   quantity: number;
 
+  @IsNumber()
+  @IsOptional()
+  price?: number;
+
   @IsString()
   @IsOptional()
   unit?: string;
@@ -14,10 +18,6 @@ export class CreateStockDto {
   @IsString()
   @IsOptional()
   category?: string;
-
-  @IsMongoId()
-  @IsOptional()
-  fournisseur?: string;
 
   @IsMongoId()
   @IsOptional()

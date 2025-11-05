@@ -1,31 +1,81 @@
-import React, { useState } from 'react';
-import { Button, Input, Table, Text, Badge, Grid, Card } from '@nextui-org/react';
+import React, { useState, useEffect } from 'react';
+import { Button, Input, Text, Badge, Grid, Card, Table, Tooltip } from '@nextui-org/react';
 import { Flex } from '../styles/flex';
 import { Box } from '../styles/box';
 import { WorkSiteData } from '../../pages/work-sites';
 import { WorksiteModal } from './worksiteModal';
 
+// View toggle icons
+const GridIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/>
+  </svg>
+);
+
+const TableIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M3 3h18v4H3V3zm0 6h18v4H3V9zm0 6h18v4H3v-4zm0 6h18v2H3v-2z"/>
+  </svg>
+);
+
 interface WorkSitesProps {
-  workSites?: WorkSiteData[]; // optional to prevent runtime crashes
+  workSites?: WorkSiteData[];
   onAdd?: (data: WorkSiteData) => Promise<{ success: boolean; message: string }>;
   onEdit?: (data: WorkSiteData) => Promise<{ success: boolean; message: string }>;
   onDelete?: (id: string) => Promise<{ success: boolean; message: string }>;
   onRefresh?: () => void;
+  readOnly?: boolean;
 }
 
 export const WorkSites = ({
-  workSites = [], // ✅ default empty array
+  workSites = [],
   onAdd,
   onEdit,
   onDelete,
   onRefresh,
+  readOnly = false,
 }: WorkSitesProps) => {
   const [searchValue, setSearchValue] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingWorksite, setEditingWorksite] = useState<WorkSiteData | null>(null);
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [sortColumn, setSortColumn] = useState<'name' | 'location' | 'status' | 'startDate' | 'endDate'>('status');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Set default view based on screen size
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 960) {
+        setViewMode('grid');
+      } else {
+        setViewMode('table');
+      }
+    };
+    
+    handleResize(); // Set initial view
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Helper functions
+  const getStatus = (workSite: WorkSiteData) => {
+    if (!workSite.startDate) return 'Pending';
+    if (workSite.endDate && new Date(workSite.endDate) < new Date()) return 'Completed';
+    if (new Date(workSite.startDate) > new Date()) return 'Scheduled';
+    return 'Active';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Active': return 'success';
+      case 'Completed': return 'default';
+      case 'Scheduled': return 'warning';
+      case 'Pending': return 'secondary';
+      default: return 'default';
+    }
+  };
 
   // ✅ Safe filtering (handles undefined or wrong type)
   const filteredWorkSites = Array.isArray(workSites)
@@ -35,6 +85,70 @@ export const WorkSites = ({
           w.location?.toLowerCase().includes(searchValue.toLowerCase())
       )
     : [];
+
+  // Sort work sites
+  const sortedWorkSites = [...filteredWorkSites].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortColumn) {
+      case 'name':
+        comparison = (a.name || '').localeCompare(b.name || '');
+        break;
+      case 'location':
+        comparison = (a.location || '').localeCompare(b.location || '');
+        break;
+      case 'status':
+        const statusA = getStatus(a);
+        const statusB = getStatus(b);
+        // Custom status order: Active > Scheduled > Pending > Completed
+        const statusOrder: { [key: string]: number } = {
+          'Active': 1,
+          'Scheduled': 2,
+          'Pending': 3,
+          'Completed': 4,
+        };
+        comparison = (statusOrder[statusA] || 5) - (statusOrder[statusB] || 5);
+        break;
+      case 'startDate':
+        const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+        comparison = dateA - dateB;
+        break;
+      case 'endDate':
+        const endA = a.endDate ? new Date(a.endDate).getTime() : 0;
+        const endB = b.endDate ? new Date(b.endDate).getTime() : 0;
+        comparison = endA - endB;
+        break;
+    }
+    
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const handleSort = (column: typeof sortColumn) => {
+    if (sortColumn === column) {
+      // Toggle direction if clicking same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column, default to ascending
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortIcon = ({ column }: { column: typeof sortColumn }) => {
+    if (sortColumn !== column) {
+      return (
+        <span style={{ opacity: 0.3, marginLeft: '4px' }}>
+          ↕
+        </span>
+      );
+    }
+    return (
+      <span style={{ marginLeft: '4px' }}>
+        {sortDirection === 'asc' ? '↑' : '↓'}
+      </span>
+    );
+  };
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -80,92 +194,9 @@ export const WorkSites = ({
     }
     setLoading(false);
   };
-
-  const getStatus = (workSite: WorkSiteData) => {
-    if (!workSite.startDate) return 'Pending';
-    if (workSite.endDate && new Date(workSite.endDate) < new Date()) return 'Completed';
-    if (new Date(workSite.startDate) > new Date()) return 'Scheduled';
-    return 'Active';
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active':
-        return 'success';
-      case 'Completed':
-        return 'default';
-      case 'Scheduled':
-        return 'warning';
-      case 'Pending':
-        return 'secondary';
-      default:
-        return 'default';
-    }
-  };
-
-  const renderCell = (workSite: WorkSiteData, columnKey: React.Key) => {
-    switch (columnKey) {
-      case '_id':
-        return <Text css={{ fontSize: '$xs' }}>{workSite._id?.slice(-6)}</Text>;
-      case 'name':
-        return <Text b>{workSite.name}</Text>;
-      case 'location':
-        return <Text>{workSite.location}</Text>;
-      case 'startDate':
-        return (
-          <Text css={{ fontSize: '$sm' }}>
-            {workSite.startDate ? new Date(workSite.startDate).toLocaleDateString() : '-'}
-          </Text>
-        );
-      case 'endDate':
-        return (
-          <Text css={{ fontSize: '$sm' }}>
-            {workSite.endDate ? new Date(workSite.endDate).toLocaleDateString() : '-'}
-          </Text>
-        );
-      case 'status':
-        const status = getStatus(workSite);
-        return (
-          <Badge color={getStatusColor(status)} variant="flat">
-            {status}
-          </Badge>
-        );
-      case 'actions':
-        return (
-          <Flex css={{ gap: '$2' }}>
-            <Button size="xs" auto flat color="primary" onClick={() => openEditModal(workSite)} disabled={loading}>
-              Edit
-            </Button>
-            <Button
-              size="xs"
-              auto
-              flat
-              color="error"
-              onClick={() => workSite._id && handleDelete(workSite._id)}
-              disabled={loading}
-            >
-              Delete
-            </Button>
-          </Flex>
-        );
-      default:
-        return <Text>{(workSite as any)[columnKey]}</Text>;
-    }
-  };
-
-  const columns = [
-    { name: 'ID', uid: '_id' },
-    { name: 'Name', uid: 'name' },
-    { name: 'Location', uid: 'location' },
-    { name: 'Start Date', uid: 'startDate' },
-    { name: 'End Date', uid: 'endDate' },
-    { name: 'Status', uid: 'status' },
-    { name: 'Actions', uid: 'actions' },
-  ];
-
   return (
-    <Box css={{ px: '$6', mt: '$8', '@xsMax': { px: '$4' } }}>
-      {/* ✅ Notification Toast */}
+    <Box css={{ width: '100%', height: '100%', pb: '$10' }}>
+      {/* Notification Toast */}
       {notification && (
         <Box
           css={{
@@ -173,12 +204,12 @@ export const WorkSites = ({
             top: '$10',
             right: '$10',
             zIndex: 9999,
-            p: '$8',
+            p: '$6',
             borderRadius: '$lg',
-            bg: notification.type === 'success' ? '$success' : '$error',
+            bg: notification.type === 'success' ? '$green600' : '$error',
             color: 'white',
-            boxShadow: '$lg',
-            minWidth: '250px',
+            boxShadow: '$xl',
+            minWidth: '300px',
             '@xsMax': {
               top: '$4',
               right: '$4',
@@ -187,157 +218,435 @@ export const WorkSites = ({
             },
           }}
         >
-          <Text b color="white">
-            {notification.message}
-          </Text>
+          <Text b color="white">{notification.message}</Text>
         </Box>
       )}
 
       {/* Header */}
-      <Flex justify="between" align="center" wrap="wrap" css={{ gap: '$4', mb: '$6' }}>
-        <Text h3 css={{ '@xsMax': { fontSize: '$xl' } }}>
-          Work Sites Management
-        </Text>
-        <Flex css={{ gap: '$4' }}>
-          <Button auto color="primary" onClick={openAddModal} css={{ '@xsMax': { minWidth: 'auto', px: '$8' } }}>
-            + Add
-          </Button>
-          {onRefresh && (
-            <Button auto flat onClick={onRefresh} css={{ '@xsMax': { minWidth: 'auto', px: '$8' } }}>
-              🔄 Refresh
-            </Button>
+      <Box css={{ mb: '$8' }}>
+        <Flex justify="between" align="center" wrap="wrap" css={{ gap: '$4', mb: '$6' }}>
+          <Box>
+            <Text h2 css={{ fontSize: '$2xl', fontWeight: '700', mb: '$2', '@xsMax': { fontSize: '$xl' } }}>
+              Work Sites
+            </Text>
+            <Text css={{ color: '$accents7', fontSize: '$sm' }}>
+              Manage construction sites and projects
+            </Text>
+          </Box>
+          <Flex css={{ gap: '$3' }}>
+            {/* View Toggle Buttons */}
+            <Flex css={{ gap: '$2', mr: '$2' }}>
+              <Tooltip content="Grid View">
+                <Button
+                  auto
+                  light={viewMode !== 'grid'}
+                  color={viewMode === 'grid' ? 'success' : 'default'}
+                  onClick={() => setViewMode('grid')}
+                  css={{ minWidth: 'auto', px: '$4' }}
+                >
+                  <GridIcon />
+                </Button>
+              </Tooltip>
+              <Tooltip content="Table View">
+                <Button
+                  auto
+                  light={viewMode !== 'table'}
+                  color={viewMode === 'table' ? 'success' : 'default'}
+                  onClick={() => setViewMode('table')}
+                  css={{ minWidth: 'auto', px: '$4' }}
+                >
+                  <TableIcon />
+                </Button>
+              </Tooltip>
+            </Flex>
+            
+            {onRefresh && (
+              <Button auto flat onClick={onRefresh} disabled={loading}>
+                Refresh
+              </Button>
+            )}
+            {!readOnly && (
+              <Button auto color="success" onClick={openAddModal} disabled={loading}>
+                + Add Work Site
+              </Button>
+            )}
+          </Flex>
+        </Flex>
+
+        {/* Search */}
+        <Flex css={{ gap: '$4', flexWrap: 'wrap', alignItems: 'center' }}>
+          <Input
+            clearable
+            bordered
+            fullWidth
+            placeholder="Search by name or location..."
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            css={{ maxWidth: '500px', flex: 1 }}
+          />
+          
+          {/* Sort Dropdown - Only show in Grid View */}
+          {viewMode === 'grid' && (
+            <Flex css={{ gap: '$2', alignItems: 'center' }}>
+              <Text css={{ fontSize: '$sm', color: '$accents7', whiteSpace: 'nowrap' }}>
+                Sort by:
+              </Text>
+              <select
+                value={sortColumn}
+                onChange={(e) => {
+                  setSortColumn(e.target.value as typeof sortColumn);
+                  setSortDirection('asc');
+                }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--nextui-colors-border)',
+                  background: 'var(--nextui-colors-background)',
+                  color: 'var(--nextui-colors-text)',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value="status">Status</option>
+                <option value="name">Name</option>
+                <option value="location">Location</option>
+                <option value="startDate">Start Date</option>
+                <option value="endDate">End Date</option>
+              </select>
+              <Button
+                auto
+                light
+                size="sm"
+                onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                css={{ minWidth: 'auto', px: '$3' }}
+              >
+                {sortDirection === 'asc' ? '↑' : '↓'}
+              </Button>
+            </Flex>
           )}
         </Flex>
-      </Flex>
+      </Box>
 
-      {/* Search & View Toggle */}
-      <Flex css={{ gap: '$4', mb: '$6' }} wrap="wrap" align="center">
-        <Input
-          clearable
-          placeholder="Search work sites..."
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          css={{ flex: 1, minWidth: '200px' }}
-        />
-        <Button.Group size="sm">
-          <Button flat={viewMode !== 'table'} onClick={() => setViewMode('table')}>
-            📋 Table
-          </Button>
-          <Button flat={viewMode !== 'grid'} onClick={() => setViewMode('grid')}>
-            🎴 Grid
-          </Button>
-        </Button.Group>
-      </Flex>
-
-      {/* Table View */}
-      {viewMode === 'table' && (
-        <Box css={{ overflowX: 'auto' }}>
+      {/* Content - Table or Grid View */}
+      {sortedWorkSites.length > 0 ? (
+        viewMode === 'table' ? (
+          /* Table View */
           <Table
+            lined
+            headerLined
+            shadow={false}
             aria-label="Work sites table"
             css={{
+              height: 'auto',
               minWidth: '100%',
-              '@xsMax': { fontSize: '$xs' },
             }}
-            selectionMode="none"
           >
-            <Table.Header columns={columns}>
-              {(column) => (
-                <Table.Column
-                  key={column.uid}
-                  hideHeader={column.uid === 'actions'}
-                  align={column.uid === 'actions' ? 'center' : 'start'}
+            <Table.Header>
+              <Table.Column>
+                <Box 
+                  as="button"
+                  onClick={() => handleSort('name')}
+                  css={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontWeight: '600',
+                    fontSize: '$xs',
+                    color: '$accents7',
+                    padding: 0,
+                    '&:hover': {
+                      color: '$text',
+                    },
+                  }}
                 >
-                  {column.name}
-                </Table.Column>
-              )}
+                  NAME <SortIcon column="name" />
+                </Box>
+              </Table.Column>
+              <Table.Column>
+                <Box 
+                  as="button"
+                  onClick={() => handleSort('location')}
+                  css={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontWeight: '600',
+                    fontSize: '$xs',
+                    color: '$accents7',
+                    padding: 0,
+                    '&:hover': {
+                      color: '$text',
+                    },
+                  }}
+                >
+                  LOCATION <SortIcon column="location" />
+                </Box>
+              </Table.Column>
+              <Table.Column>
+                <Box 
+                  as="button"
+                  onClick={() => handleSort('status')}
+                  css={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontWeight: '600',
+                    fontSize: '$xs',
+                    color: '$accents7',
+                    padding: 0,
+                    '&:hover': {
+                      color: '$text',
+                    },
+                  }}
+                >
+                  STATUS <SortIcon column="status" />
+                </Box>
+              </Table.Column>
+              <Table.Column>
+                <Box 
+                  as="button"
+                  onClick={() => handleSort('startDate')}
+                  css={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontWeight: '600',
+                    fontSize: '$xs',
+                    color: '$accents7',
+                    padding: 0,
+                    '&:hover': {
+                      color: '$text',
+                    },
+                  }}
+                >
+                  START DATE <SortIcon column="startDate" />
+                </Box>
+              </Table.Column>
+              <Table.Column>
+                <Box 
+                  as="button"
+                  onClick={() => handleSort('endDate')}
+                  css={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontWeight: '600',
+                    fontSize: '$xs',
+                    color: '$accents7',
+                    padding: 0,
+                    '&:hover': {
+                      color: '$text',
+                    },
+                  }}
+                >
+                  END DATE <SortIcon column="endDate" />
+                </Box>
+              </Table.Column>
+              <Table.Column>ACTIONS</Table.Column>
             </Table.Header>
-            <Table.Body items={filteredWorkSites}>
-              {(item) => (
-                <Table.Row key={item._id}>
-                  {(columnKey) => <Table.Cell>{renderCell(item, columnKey)}</Table.Cell>}
-                </Table.Row>
-              )}
-            </Table.Body>
-          </Table>
-        </Box>
-      )}
-
-      {/* Grid View */}
-      {viewMode === 'grid' && (
-        <Grid.Container gap={2}>
-          {filteredWorkSites.map((workSite) => {
-            const status = getStatus(workSite);
-            return (
-              <Grid xs={12} sm={6} md={4} key={workSite._id}>
-                <Card css={{ p: '$10', w: '100%' }}>
-                  <Flex direction="column" css={{ gap: '$4' }}>
-                    <Flex justify="between" align="center">
-                      <Text b size="$lg">
-                        {workSite.name}
+            <Table.Body>
+              {sortedWorkSites.map((workSite) => {
+                const status = getStatus(workSite);
+                return (
+                  <Table.Row key={workSite._id}>
+                    <Table.Cell>
+                      <Text b css={{ fontSize: '$sm' }}>{workSite.name}</Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text css={{ fontSize: '$sm', color: '$accents7' }}>
+                        {workSite.location}
                       </Text>
-                      <Badge color={getStatusColor(status)} variant="flat">
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Badge color={getStatusColor(status)} variant="flat" size="sm">
                         {status}
                       </Badge>
-                    </Flex>
-                    <Text css={{ fontSize: '$sm', color: '$accents7' }}>📍 {workSite.location}</Text>
-                    {workSite.note && (
-                      <Text css={{ fontSize: '$sm', color: '$accents8' }}>
-                        {workSite.note.length > 100 ? workSite.note.substring(0, 100) + '...' : workSite.note}
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text css={{ fontSize: '$sm' }}>
+                        {workSite.startDate
+                          ? new Date(workSite.startDate).toLocaleDateString()
+                          : '-'}
                       </Text>
-                    )}
-                    <Flex css={{ gap: '$4', fontSize: '$xs', color: '$accents8' }}>
-                      <Box>
-                        <Text css={{ fontSize: '$xs', color: '$accents7' }}>Start:</Text>
-                        <Text css={{ fontSize: '$xs' }}>
-                          {workSite.startDate ? new Date(workSite.startDate).toLocaleDateString() : '-'}
-                        </Text>
-                      </Box>
-                      <Box>
-                        <Text css={{ fontSize: '$xs', color: '$accents7' }}>End:</Text>
-                        <Text css={{ fontSize: '$xs' }}>
-                          {workSite.endDate ? new Date(workSite.endDate).toLocaleDateString() : '-'}
-                        </Text>
-                      </Box>
-                    </Flex>
-                    <Flex css={{ gap: '$4', mt: '$4' }}>
-                      <Button
-                        size="sm"
-                        flat
-                        color="primary"
-                        css={{ flex: 1 }}
-                        onClick={() => openEditModal(workSite)}
-                        disabled={loading}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        flat
-                        color="error"
-                        css={{ flex: 1 }}
-                        onClick={() => workSite._id && handleDelete(workSite._id)}
-                        disabled={loading}
-                      >
-                        Delete
-                      </Button>
-                    </Flex>
-                  </Flex>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid.Container>
-      )}
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Text css={{ fontSize: '$sm' }}>
+                        {workSite.endDate
+                          ? new Date(workSite.endDate).toLocaleDateString()
+                          : '-'}
+                      </Text>
+                    </Table.Cell>
+                    <Table.Cell>
+                      {!readOnly && (
+                        <Flex css={{ gap: '$2' }}>
+                          <Button
+                            size="sm"
+                            flat
+                            color="primary"
+                            onClick={() => openEditModal(workSite)}
+                            disabled={loading}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            flat
+                            color="error"
+                            onClick={() => workSite._id && handleDelete(workSite._id)}
+                            disabled={loading}
+                          >
+                            Delete
+                          </Button>
+                        </Flex>
+                      )}
+                    </Table.Cell>
+                  </Table.Row>
+                );
+              })}
+            </Table.Body>
+          </Table>
+        ) : (
+          /* Grid View */
+          <Grid.Container gap={2}>
+            {sortedWorkSites.map((workSite) => {
+              const status = getStatus(workSite);
+              return (
+                <Grid xs={12} sm={6} md={4} key={workSite._id}>
+                  <Card
+                    variant="bordered"
+                    css={{
+                      p: '$6',
+                      height: '100%',
+                      borderRadius: '$lg',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: '$green600',
+                        boxShadow: '$md',
+                      },
+                    }}
+                  >
+                    <Flex direction="column" css={{ height: '100%', gap: '$4' }}>
+                      {/* Header */}
+                      <Flex justify="between" align="start">
+                        <Box css={{ flex: 1 }}>
+                          <Text h4 css={{ fontSize: '$lg', fontWeight: '600', mb: '$2' }}>
+                            {workSite.name}
+                          </Text>
+                          <Text css={{ fontSize: '$sm', color: '$accents7' }}>
+                            {workSite.location}
+                          </Text>
+                        </Box>
+                        <Badge color={getStatusColor(status)} variant="flat" size="sm">
+                          {status}
+                        </Badge>
+                      </Flex>
 
-      {/* Empty State */}
-      {filteredWorkSites.length === 0 && (
+                      {/* Note */}
+                      {workSite.note && (
+                        <Text css={{ fontSize: '$sm', color: '$accents8', lineHeight: '1.5' }}>
+                          {workSite.note.length > 100
+                            ? `${workSite.note.substring(0, 100)}...`
+                            : workSite.note}
+                        </Text>
+                      )}
+
+                      {/* Dates */}
+                      <Box css={{ mt: 'auto' }}>
+                        <Flex css={{ gap: '$8', mb: '$4' }}>
+                          <Box>
+                            <Text css={{ fontSize: '$xs', color: '$accents6', mb: '$1' }}>
+                              Start Date
+                            </Text>
+                            <Text css={{ fontSize: '$sm', fontWeight: '500' }}>
+                              {workSite.startDate
+                                ? new Date(workSite.startDate).toLocaleDateString()
+                                : 'Not set'}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text css={{ fontSize: '$xs', color: '$accents6', mb: '$1' }}>
+                              End Date
+                            </Text>
+                            <Text css={{ fontSize: '$sm', fontWeight: '500' }}>
+                              {workSite.endDate
+                                ? new Date(workSite.endDate).toLocaleDateString()
+                                : 'Not set'}
+                            </Text>
+                          </Box>
+                        </Flex>
+
+                        {/* Actions */}
+                        {!readOnly && (
+                          <Flex css={{ gap: '$2' }}>
+                            <Button
+                              size="sm"
+                              flat
+                              color="primary"
+                              css={{ flex: 1 }}
+                              onClick={() => openEditModal(workSite)}
+                              disabled={loading}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              flat
+                              color="error"
+                              css={{ flex: 1 }}
+                              onClick={() => workSite._id && handleDelete(workSite._id)}
+                              disabled={loading}
+                            >
+                              Delete
+                            </Button>
+                          </Flex>
+                        )}
+                      </Box>
+                    </Flex>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid.Container>
+        )
+      ) : (
+        /* Empty State */
         <Box css={{ textAlign: 'center', py: '$20' }}>
-          <Text h4 color="$accents7">
+          <Box
+            css={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '$rounded',
+              background: '$green100',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto $8',
+            }}
+          >
+            <Text css={{ fontSize: '40px' }}>🏗️</Text>
+          </Box>
+          <Text h3 css={{ fontSize: '$xl', fontWeight: '600', mb: '$2' }}>
             {searchValue ? 'No work sites found' : 'No work sites yet'}
           </Text>
+          <Text css={{ color: '$accents7', mb: '$6', maxWidth: '400px', margin: '0 auto $6' }}>
+            {searchValue
+              ? 'Try adjusting your search criteria'
+              : 'Get started by creating your first work site'}
+          </Text>
           {!searchValue && (
-            <Button auto color="primary" css={{ mt: '$4' }} onClick={openAddModal}>
-              Add Your First Work Site
+            <Button auto color="success" onClick={openAddModal}>
+              + Add Work Site
             </Button>
           )}
         </Box>

@@ -6,7 +6,7 @@ export const SidebarWrapper = styled('div', {
    display: 'flex',
 });
 export const StyledBurgerButton = styled('button', {
-   'position': 'absolute',
+   'position': 'relative',
    'display': 'flex',
    'flexDirection': 'column',
    'justifyContent': 'space-around',

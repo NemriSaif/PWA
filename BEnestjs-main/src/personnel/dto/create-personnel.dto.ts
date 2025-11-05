@@ -2,6 +2,10 @@ import { IsString, IsNotEmpty, IsOptional, MinLength, Matches, Length, IsNumber 
 
 export class CreatePersonnelDto {
   @IsString()
+  @IsOptional()
+  userId?: string; // Optional: Link to User account
+
+  @IsString()
   @IsNotEmpty({ message: 'Name is required' })
   @MinLength(3, { message: 'Name must be at least 3 characters long' })
   name: string;

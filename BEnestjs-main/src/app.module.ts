@@ -6,8 +6,9 @@ import { ChantierModule } from './chantier/chantier.module';
 import { VehiculeModule } from './vehicule/vehicule.module';
 import { PersonnelModule } from './personnel/personnel.module';
 import { DailyAssignmentModule } from './daily-assignment/daily-assignment.module';
-import { FournisseurModule } from './fournisseur/fournisseur.module';
 import { StockModule } from './stock/stock.module';
+import { AuthModule } from './auth/auth.module';
+import { OrderModule } from './order/order.module';
 
 
 @Module({
@@ -17,8 +18,9 @@ import { StockModule } from './stock/stock.module';
     VehiculeModule,
     PersonnelModule,
     DailyAssignmentModule,
-    FournisseurModule,
     StockModule,
+    AuthModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [AppService],

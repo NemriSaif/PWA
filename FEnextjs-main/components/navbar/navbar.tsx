@@ -31,45 +31,82 @@ export const NavbarWrapper = ({children}: Props) => {
                'justifyContent': 'space-between',
                'width': '100%',
                'background': '$background',
+               'padding': '$0 $4',
+               '@xs': {
+                  padding: '$0 $2',
+               },
                '@md': {
                   justifyContent: 'space-between',
+                  padding: '$0 $8',
                },
 
                '& .nextui-navbar-container': {
                   'border': 'none',
                   'maxWidth': '100%',
-                  'gap': '$6',
+                  'gap': '$4',
+                  '@xs': {
+                     gap: '$2',
+                  },
                   '@md': {
                      justifyContent: 'space-between',
+                     gap: '$6',
                   },
                },
             }}
          >
-            <Navbar.Content showIn="md">
+            {/* Mobile: Burger + Logo */}
+            <Navbar.Content 
+               hideIn="md" 
+               css={{ 
+                  gap: '$3',
+                  display: 'flex',
+                  '@md': {
+                     display: 'none !important',
+                  },
+               }}
+            >
                <BurguerButton />
-            </Navbar.Content>
-            
-            {/* Logo & Brand */}
-            <Navbar.Content hideIn="md" css={{ gap: '$8' }}>
                <Text
                   h3
                   css={{
                      fontWeight: '$bold',
-                     fontSize: '$xl',
+                     fontSize: '$lg',
                      background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
                      WebkitBackgroundClip: 'text',
                      WebkitTextFillColor: 'transparent',
                      m: 0,
+                     '@xs': {
+                        fontSize: '$md',
+                     },
                   }}
                >
                   🌳 JninaTech
                </Text>
             </Navbar.Content>
 
+            {/* Desktop: Burger Button */}
+            <Navbar.Content 
+               showIn="md"
+               css={{
+                  display: 'none',
+                  '@md': {
+                     display: 'flex !important',
+                  },
+               }}
+            >
+               <BurguerButton />
+            </Navbar.Content>
+
+            {/* Desktop: Search Bar */}
             <Navbar.Content
-               hideIn={'md'}
+               showIn="md"
                css={{
                   width: '100%',
+                  maxWidth: '400px',
+                  display: 'none',
+                  '@md': {
+                     display: 'flex !important',
+                  },
                }}
             >
                <Input
@@ -84,9 +121,6 @@ export const NavbarWrapper = ({children}: Props) => {
                   css={{
                      'w': '100%',
                      'transition': 'all 0.2s ease',
-                     '@xsMax': {
-                        w: '100%',
-                     },
                      '& .nextui-input-content--left': {
                         h: '100%',
                         ml: '$4',
@@ -97,7 +131,8 @@ export const NavbarWrapper = ({children}: Props) => {
                />
             </Navbar.Content>
             
-            <Navbar.Content>
+            {/* Right side: Actions */}
+            <Navbar.Content css={{ gap: '$2', '@xs': { gap: '$1' } }}>
                <Navbar.Content hideIn={'md'}>
                   <InstallPWA />
                </Navbar.Content>
@@ -111,7 +146,19 @@ export const NavbarWrapper = ({children}: Props) => {
                </Navbar.Content>
             </Navbar.Content>
          </Navbar>
-         {children}
+         <Box css={{
+            px: '$6',
+            py: '$4',
+            width: '100%',
+            height: '100%',
+            overflow: 'auto',
+            '@xs': {
+               px: '$4',
+               py: '$3',
+            },
+         }}>
+            {children}
+         </Box>
       </Box>
    );
 };
