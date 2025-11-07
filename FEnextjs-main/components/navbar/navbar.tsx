@@ -1,18 +1,30 @@
-import {Input, Link, Navbar, Text, Badge} from '@nextui-org/react';
+import {Input, Link, Navbar, Text, Badge, Button} from '@nextui-org/react';
 import React from 'react';
 import {SearchIcon} from '../icons/searchicon';
+import {LogoutIcon} from '../icons/logout-icon';
 import {Box} from '../styles/box';
 import {Flex} from '../styles/flex';
 import {BurguerButton} from './burguer-button';
 import {NotificationsDropdown} from './notifications-dropdown';
 import {UserDropdown} from './user-dropdown';
 import { InstallPWA } from '../install-pwa/InstallPWA';
+import { useRouter } from 'next/router';
 
 interface Props {
    children: React.ReactNode;
 }
 
 export const NavbarWrapper = ({children}: Props) => {
+   const router = useRouter();
+
+   const handleLogout = () => {
+      // Clear authentication data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      // Redirect to login page
+      router.push('/login');
+   };
+
    return (
       <Box
          css={{
@@ -143,6 +155,26 @@ export const NavbarWrapper = ({children}: Props) => {
 
                <Navbar.Content>
                   <UserDropdown />
+               </Navbar.Content>
+
+               <Navbar.Content>
+                  <Button 
+                     auto 
+                     flat 
+                     color="error"
+                     size="sm"
+                     onPress={handleLogout}
+                     icon={<LogoutIcon size={18} />}
+                     css={{
+                        fontWeight: '$semibold',
+                        '@xs': {
+                           minWidth: 'auto',
+                           px: '$6',
+                        },
+                     }}
+                  >
+                     Logout
+                  </Button>
                </Navbar.Content>
             </Navbar.Content>
          </Navbar>
