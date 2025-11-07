@@ -30,10 +30,19 @@ export class VehiculeService {
     id: string,
     updateVehiculeDto: UpdateVehiculeDto,
   ): Promise<Vehicule> {
+    console.log('🔄 Updating vehicle:', id);
+    console.log('📝 Update data:', updateVehiculeDto);
+    
     const updated = await this.vehiculeModel
-      .findByIdAndUpdate(id, updateVehiculeDto, { new: true })
+      .findByIdAndUpdate(id, updateVehiculeDto, { 
+        new: true,
+        runValidators: true 
+      })
       .exec();
+      
     if (!updated) throw new NotFoundException('Vehicule not found');
+    
+    console.log('✅ Updated vehicle:', updated);
     return updated;
   }
 

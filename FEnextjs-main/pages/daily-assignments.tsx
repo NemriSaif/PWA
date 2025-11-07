@@ -4,6 +4,7 @@ import { DailyAssignments } from '../components/daily-assignments/daily-assignme
 import { Loading, Text } from '@nextui-org/react';
 import { Box } from '../components/styles/box';
 import { getUserRole } from '../utils/auth';
+import { StockData } from './stock';
 
 export interface PersonnelData {
   _id: string;
@@ -64,10 +65,14 @@ const DailyAssignmentsPage = () => {
   const [personnel, setPersonnel] = useState<PersonnelData[]>([]);
   const [vehicules, setVehicules] = useState<VehiculeData[]>([]);
   const [chantiers, setChantiers] = useState<ChantierData[]>([]);
+  const [stock, setStock] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const userRole = getUserRole();
   const isPersonnel = userRole === 'personnel';
+
+  console.log('👤 Current user role:', userRole);
+  console.log('📦 Stock items loaded:', stock.length);
 
   const fetchAll = async () => {
     try {
@@ -81,17 +86,19 @@ const DailyAssignmentsPage = () => {
         // No need to fetch personnel/vehicules/chantiers for read-only view
       } else {
         // Managers see all assignments and resources
-        const [assignmentsData, personnelData, vehiculesData, chantiersData] = await Promise.all([
+        const [assignmentsData, personnelData, vehiculesData, chantiersData, stockData] = await Promise.all([
           offlineGet<DailyAssignmentData>('/daily-assignment', 'daily-assignment'),
           offlineGet<PersonnelData>('/personnel', 'personnel'),
           offlineGet<VehiculeData>('/vehicule', 'vehicule'),
           offlineGet<ChantierData>('/chantier', 'chantier'),
+          offlineGet<StockData>('/stock', 'stock'),
         ]);
 
         setAssignments(assignmentsData);
         setPersonnel(personnelData);
         setVehicules(vehiculesData);
         setChantiers(chantiersData);
+        setStock(stockData);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -106,19 +113,54 @@ const DailyAssignmentsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleAddAssignment = async (data: DailyAssignmentData) => {
+  const handleAddAssignment = async (data: DailyAssignmentData & { stockUsage?: any[] }) => {
     try {
-      console.log('Sending to backend:', data);
-      const response = await apiPost<DailyAssignmentData>('/daily-assignment', data, 'daily-assignment');
+      console.log('🔍 Creating assignment with data:', data);
+      console.log('📦 Stock usage:', data.stockUsage);
+      
+      // Update stock quantities if stockUsage is provided
+      if (data.stockUsage && data.stockUsage.length > 0) {
+        console.log('🔄 Processing stock consumption...');
+        for (const usage of data.stockUsage) {
+          const stockItem = stock.find(s => s._id === usage.stockId);
+          console.log(`📦 Consuming stock: ${stockItem?.name}, Quantity: ${usage.quantityUsed}`);
+          if (stockItem) {
+            try {
+              // Use the new consume endpoint instead of PATCH
+              const updatedStock = await apiPost<StockData>(
+                `/stock/${usage.stockId}/consume`, 
+                { quantityUsed: usage.quantityUsed },
+                'stock'
+              );
+              console.log('✅ Stock consumed successfully:', updatedStock);
+              // Update local stock state
+              setStock(prev => prev.map(s => 
+                s._id === usage.stockId ? updatedStock : s
+              ));
+            } catch (stockError: any) {
+              console.error('❌ Error consuming stock:', stockError);
+              console.error('📄 Stock error details:', stockError.response?.data);
+              throw new Error(`Failed to consume stock: ${stockError.response?.data?.message || stockError.message}`);
+            }
+          }
+        }
+      }
+      
+      // Remove stockUsage from the data before sending to backend
+      const { stockUsage, ...assignmentData } = data;
+      console.log('📝 Creating assignment without stockUsage field...');
+      const response = await apiPost<DailyAssignmentData>('/daily-assignment', assignmentData, 'daily-assignment');
+      console.log('✅ Assignment created successfully:', response);
       setAssignments(prev => [response, ...prev]);
       return { success: true, message: 'Assignment created successfully!' };
     } catch (error: any) {
-      console.error('Error creating assignment:', error);
-      console.error('Error response:', error.response?.data);
+      console.error('❌ Error creating assignment:', error);
+      console.error('📄 Full error:', error);
+      console.error('📄 Error response:', error.response?.data);
       const isQueued = error.message?.includes('queued');
       return {
         success: isQueued,
-        message: isQueued ? '📝 Assignment will be created when online' : (error.message || 'Failed to create assignment')
+        message: isQueued ? '📝 Assignment will be created when online' : (error.response?.data?.message || error.message || 'Failed to create assignment')
       };
     }
   };
@@ -213,6 +255,7 @@ const DailyAssignmentsPage = () => {
       personnel={personnel}
       vehicules={vehicules}
       chantiers={chantiers}
+      stock={stock}
       onAdd={handleAddAssignment}
       onEdit={handleEditAssignment}
       onDelete={handleDeleteAssignment}

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { offlineGet, apiPost, apiPatch, apiDelete } from '../utils/apiClient';
-import { AddVehiculeModal } from '../components/vehicles/AddVehiculeModal';
 import { Vehicles } from '../components/vehicles/vehicles';
 import { Loading, Text, Button } from '@nextui-org/react';
 import { Box } from '../components/styles/box';
@@ -13,7 +12,7 @@ export interface VehiculeData {
   modele?: string;
   type?: string;
   kilometrage?: number;
-  chantier?: string; // You can expand later if you want full Chantier object
+  chantier?: string | { _id: string; name: string; location: string }; // Can be ObjectId or populated object
 }
 
 const API_ENDPOINT = '/vehicule';
@@ -45,17 +44,32 @@ const VehiclesPage = () => {
   // Add a new vehicle
   const handleAddVehicule = async (data: VehiculeData) => {
     try {
-      const response = await apiPost<VehiculeData>(API_ENDPOINT, data, 'vehicule');
-      console.log('Vehicle added:', response);
+      // Build clean data object - only include fields that have values
+      const cleanData: any = {
+        immatriculation: data.immatriculation,
+      };
+
+      // Only add optional fields if they have non-empty values
+      if (data.marque) cleanData.marque = data.marque;
+      if (data.modele) cleanData.modele = data.modele;
+      if (data.type) cleanData.type = data.type;
+      if (data.kilometrage !== undefined && data.kilometrage !== null && data.kilometrage >= 0) {
+        cleanData.kilometrage = data.kilometrage;
+      }
+
+      console.log('Adding vehicle with data:', cleanData);
+      const response = await apiPost<VehiculeData>(API_ENDPOINT, cleanData, 'vehicule');
+      console.log('Vehicle added successfully:', response);
 
       // Update list locally
       setVehicles(prev => [...prev, response]);
+      alert('✅ Vehicle added successfully!');
     } catch (error: any) {
       console.error('Error adding vehicle:', error);
       if (error.message?.includes('queued')) {
         alert('📝 Vehicle will be added when online');
       } else {
-        alert(error.message || 'Failed to add vehicle');
+        alert('❌ ' + (error.message || 'Failed to add vehicle'));
       }
     }
   };
@@ -64,14 +78,32 @@ const VehiclesPage = () => {
   const handleEditVehicule = async (data: VehiculeData) => {
     if (!data._id) return;
     try {
-      const response = await apiPatch<VehiculeData>(`${API_ENDPOINT}/${data._id}`, data, 'vehicule');
+      // Build clean data object - only include fields that have values
+      const cleanData: any = {};
+
+      // Only add fields that are present and non-empty
+      if (data.immatriculation) cleanData.immatriculation = data.immatriculation;
+      if (data.marque) cleanData.marque = data.marque;
+      if (data.modele) cleanData.modele = data.modele;
+      if (data.type) cleanData.type = data.type;
+      if (data.kilometrage !== undefined && data.kilometrage !== null && data.kilometrage >= 0) {
+        cleanData.kilometrage = data.kilometrage;
+      }
+
+      console.log('Updating vehicle ID:', data._id);
+      console.log('Update payload:', cleanData);
+      
+      const response = await apiPatch<VehiculeData>(`${API_ENDPOINT}/${data._id}`, cleanData, 'vehicule');
+      console.log('Vehicle updated successfully:', response);
+      
       setVehicles(prev => prev.map(v => (v._id === data._id ? response : v)));
+      alert('✅ Vehicle updated successfully!');
     } catch (error: any) {
       console.error('Error updating vehicle:', error);
       if (error.message?.includes('queued')) {
         alert('📝 Changes will be saved when online');
       } else {
-        alert(error.message || 'Failed to update vehicle');
+        alert('❌ ' + (error.message || 'Failed to update vehicle'));
       }
     }
   };
@@ -121,14 +153,12 @@ const VehiclesPage = () => {
   }
 
   return (
-    <div>
-      <AddVehiculeModal onSubmit={handleAddVehicule} initialData={undefined} />
-      <Vehicles 
-        vehicles={vehicles} 
-        onEdit={handleEditVehicule}
-        onDelete={handleDeleteVehicule}
-      />
-    </div>
+    <Vehicles 
+      vehicles={vehicles} 
+      onAdd={handleAddVehicule}
+      onEdit={handleEditVehicule}
+      onDelete={handleDeleteVehicule}
+    />
   );
 };
 

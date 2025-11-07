@@ -1,4 +1,4 @@
-import { Button, Input, Table, Text, Badge, Grid, Card, Tooltip } from '@nextui-org/react';
+import { Button, Input, Table, Text, Badge, Grid, Card, Tooltip, Modal, Divider } from '@nextui-org/react';
 import React, { useState, useMemo } from 'react';
 import { Flex } from '../styles/flex';
 import { Box } from '../styles/box';
@@ -19,15 +19,121 @@ const TableIcon = () => (
 
 interface VehiclesProps {
   vehicles: VehiculeData[];
+  onAdd?: (vehicle: VehiculeData) => void;
   onEdit?: (vehicle: VehiculeData) => void;
   onDelete?: (vehicleId: string) => void;
 }
 
-export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
+export const Vehicles = ({ vehicles, onAdd, onEdit, onDelete }: VehiclesProps) => {
   const [searchValue, setSearchValue] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [sortColumn, setSortColumn] = useState<'immatriculation' | 'type' | 'marque' | 'kilometrage' | 'status'>('status');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<VehiculeData | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState<VehiculeData>({
+    immatriculation: '',
+    marque: '',
+    modele: '',
+    type: '',
+    kilometrage: 0,
+    chantier: '',
+  });
+
+  const openAddModal = () => {
+    setEditingVehicle(undefined);
+    setFormData({
+      immatriculation: '',
+      marque: '',
+      modele: '',
+      type: '',
+      kilometrage: 0,
+      chantier: '',
+    });
+    setModalVisible(true);
+  };
+
+  const openEditModal = (vehicle: VehiculeData) => {
+    setEditingVehicle(vehicle);
+    setFormData({
+      immatriculation: vehicle.immatriculation || '',
+      marque: vehicle.marque || '',
+      modele: vehicle.modele || '',
+      type: vehicle.type || '',
+      kilometrage: vehicle.kilometrage || 0,
+      chantier: vehicle.chantier || '',
+    });
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setIsSubmitting(false);
+    setEditingVehicle(undefined);
+    setFormData({
+      immatriculation: '',
+      marque: '',
+      modele: '',
+      type: '',
+      kilometrage: 0,
+      chantier: '',
+    });
+  };
+
+  const handleSubmit = () => {
+    // Prevent double submission
+    if (isSubmitting) {
+      console.log('Submit already in progress, ignoring...');
+      return;
+    }
+
+    // Validate required field
+    if (!formData.immatriculation || formData.immatriculation.trim() === '') {
+      alert('❌ Registration Number is required!');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Build clean data object - only include fields that have values
+    const dataToSubmit: any = {
+      immatriculation: formData.immatriculation.trim(),
+    };
+
+    // Only add optional fields if they have non-empty values
+    if (formData.marque && formData.marque.trim()) {
+      dataToSubmit.marque = formData.marque.trim();
+    }
+    if (formData.modele && formData.modele.trim()) {
+      dataToSubmit.modele = formData.modele.trim();
+    }
+    if (formData.type && formData.type.trim()) {
+      dataToSubmit.type = formData.type.trim();
+    }
+    if (formData.kilometrage !== undefined && formData.kilometrage !== null && formData.kilometrage >= 0) {
+      dataToSubmit.kilometrage = formData.kilometrage;
+    }
+
+    console.log('Submitting vehicle data:', dataToSubmit);
+
+    if (editingVehicle) {
+      onEdit?.({ ...dataToSubmit, _id: editingVehicle._id });
+    } else {
+      onAdd?.(dataToSubmit);
+    }
+    closeModal();
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this vehicle?')) {
+      onDelete?.(id);
+    }
+  };
+
+  const handleFormChange = (field: keyof VehiculeData, value: any) => {
+    setFormData({ ...formData, [field]: value });
+  };
 
   // Helper functions
   const getStatus = (vehicle: VehiculeData) => vehicle.chantier ? 'In Use' : 'Available';
@@ -176,6 +282,13 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
               </Button>
             </Flex>
           )}
+
+          {/* Add Vehicle Button */}
+          {onAdd && (
+            <Button auto color="success" onClick={openAddModal}>
+              + Add Vehicle
+            </Button>
+          )}
         </Flex>
       </Flex>
 
@@ -300,7 +413,13 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
                       <Text size="$sm">{vehicle.kilometrage?.toLocaleString() || '-'} km</Text>
                     </Table.Cell>
                     <Table.Cell>
-                      <Text size="$sm">{vehicle.chantier || 'None'}</Text>
+                      <Text size="$sm">
+                        {vehicle.chantier 
+                          ? (typeof vehicle.chantier === 'object' && (vehicle.chantier as any).name 
+                              ? (vehicle.chantier as any).name 
+                              : 'Assigned')
+                          : 'None'}
+                      </Text>
                     </Table.Cell>
                     <Table.Cell>
                       <Badge color={getStatusColor(getStatus(vehicle))} variant="flat" size="sm">
@@ -314,7 +433,7 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
                             auto
                             light
                             size="xs"
-                            onClick={() => onEdit && onEdit(vehicle)}
+                            onClick={() => openEditModal(vehicle)}
                             css={{ minWidth: 'auto', px: '$2' }}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -329,7 +448,7 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
                             light
                             color="error"
                             size="xs"
-                            onClick={() => onDelete && onDelete(vehicle._id!)}
+                            onClick={() => handleDelete(vehicle._id!)}
                             css={{ minWidth: 'auto', px: '$2' }}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -404,7 +523,13 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
                             <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
                             <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
                           </svg>
-                          <Text size="$sm">{vehicle.chantier || 'Not Assigned'}</Text>
+                          <Text size="$sm">
+                            {vehicle.chantier 
+                              ? (typeof vehicle.chantier === 'object' && (vehicle.chantier as any).name 
+                                  ? (vehicle.chantier as any).name 
+                                  : 'Assigned')
+                              : 'Not Assigned'}
+                          </Text>
                         </Flex>
                       </Flex>
 
@@ -414,7 +539,7 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
                           auto
                           flat
                           size="sm"
-                          onClick={() => onEdit && onEdit(vehicle)}
+                          onClick={() => openEditModal(vehicle)}
                           css={{ flex: 1 }}
                         >
                           Edit
@@ -424,7 +549,7 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
                           flat
                           color="error"
                           size="sm"
-                          onClick={() => onDelete && onDelete(vehicle._id!)}
+                          onClick={() => handleDelete(vehicle._id!)}
                           css={{ flex: 1 }}
                         >
                           Delete
@@ -444,6 +569,69 @@ export const Vehicles = ({ vehicles, onEdit, onDelete }: VehiclesProps) => {
           </Text>
         </Box>
       )}
+
+      {/* Add/Edit Vehicle Modal */}
+      <Modal closeButton open={modalVisible} onClose={closeModal} width="600px">
+        <Modal.Header>
+          <Text h4>{editingVehicle ? 'Edit Vehicle' : 'Add New Vehicle'}</Text>
+        </Modal.Header>
+        <Divider css={{ my: '$5' }} />
+        <Modal.Body>
+          <Flex direction="column" css={{ gap: '$8' }}>
+            <Input
+              label="Registration Number"
+              bordered
+              fullWidth
+              required
+              value={formData.immatriculation}
+              onChange={(e) => handleFormChange('immatriculation', e.target.value)}
+            />
+            <Input
+              label="Brand (Marque)"
+              bordered
+              fullWidth
+              value={formData.marque}
+              onChange={(e) => handleFormChange('marque', e.target.value)}
+            />
+            <Input
+              label="Model (Modèle)"
+              bordered
+              fullWidth
+              value={formData.modele}
+              onChange={(e) => handleFormChange('modele', e.target.value)}
+            />
+            <Input
+              label="Type"
+              bordered
+              fullWidth
+              value={formData.type}
+              onChange={(e) => handleFormChange('type', e.target.value)}
+            />
+            <Input
+              label="Kilometrage"
+              bordered
+              fullWidth
+              type="number"
+              value={formData.kilometrage || 0}
+              onChange={(e) => handleFormChange('kilometrage', Number(e.target.value))}
+            />
+          </Flex>
+        </Modal.Body>
+        <Divider css={{ my: '$5' }} />
+        <Modal.Footer>
+          <Button auto flat color="error" onClick={closeModal} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button 
+            auto 
+            color="success" 
+            onClick={handleSubmit}
+            disabled={!formData.immatriculation || isSubmitting}
+          >
+            {isSubmitting ? 'Saving...' : (editingVehicle ? 'Update' : 'Add Vehicle')}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Box>
   );
 };

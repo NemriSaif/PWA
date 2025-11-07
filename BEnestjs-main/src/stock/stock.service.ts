@@ -103,4 +103,55 @@ export class StockService {
 
     await this.stockModel.findByIdAndDelete(id).exec();
   }
+
+  async consumeStock(id: string, quantityUsed: number, userId: string): Promise<Stock> {
+    const stock = await this.stockModel.findById(id);
+    
+    if (!stock) {
+      throw new NotFoundException(`Stock with ID ${id} not found`);
+    }
+
+    // Debug logging
+    console.log('🔍 Consume Stock Debug:');
+    console.log('  Stock ID:', id);
+    console.log('  Stock Name:', stock.name);
+    console.log('  Stock Owner (raw):', stock.owner);
+    console.log('  Stock Owner (string):', stock.owner.toString());
+    console.log('  Stock Owner (type):', typeof stock.owner);
+    console.log('  Requesting User ID:', userId);
+    console.log('  User ID (type):', typeof userId);
+    console.log('  Match:', stock.owner.toString() === userId);
+
+    // Verify that this stock belongs to the manager making the request
+    if (stock.owner.toString() !== userId) {
+      console.error('❌ Ownership mismatch!');
+      console.error('  Expected owner:', userId);
+      console.error('  Actual owner:', stock.owner.toString());
+      throw new ForbiddenException('You can only consume your own stock items');
+    }
+
+    console.log('✅ Ownership verified!');
+
+    if (stock.quantity < quantityUsed) {
+      throw new ForbiddenException(`Insufficient stock. Available: ${stock.quantity}, Requested: ${quantityUsed}`);
+    }
+
+    const newQuantity = stock.quantity - quantityUsed;
+    
+    console.log(`📦 Consuming stock: ${stock.name} - Current: ${stock.quantity}, Using: ${quantityUsed}, New: ${newQuantity}`);
+    
+    const updatedStock = await this.stockModel
+      .findByIdAndUpdate(id, { quantity: newQuantity }, { new: true })
+      .populate('chantier')
+      .populate('owner', 'name email company')
+      .exec();
+    
+    if (!updatedStock) {
+      throw new NotFoundException(`Stock with ID ${id} not found`);
+    }
+    
+    console.log(`✅ Stock consumed successfully: ${updatedStock.name} - New quantity: ${updatedStock.quantity}`);
+    
+    return updatedStock;
+  }
 }

@@ -8,14 +8,16 @@ import {
   VehiculeData,
   ChantierData,
 } from '../../pages/daily-assignments';
-import { DailyAssignmentModal } from './DailyAssignmentModal';
+import { StockData } from '../../pages/stock';
+import { StepWizardModal } from './StepWizardModal';
 
 interface DailyAssignmentsProps {
   assignments?: DailyAssignmentData[];
   personnel?: PersonnelData[];
   vehicules?: VehiculeData[];
   chantiers?: ChantierData[];
-  onAdd?: (data: DailyAssignmentData) => Promise<{ success: boolean; message: string }>;
+  stock?: StockData[];
+  onAdd?: (data: DailyAssignmentData & { stockUsage?: any[] }) => Promise<{ success: boolean; message: string }>;
   onEdit?: (data: DailyAssignmentData) => Promise<{ success: boolean; message: string }>;
   onDelete?: (id: string) => Promise<{ success: boolean; message: string }>;
   onMarkPaid?: (assignmentId: string, personnelId: string) => Promise<{ success: boolean; message: string }>;
@@ -32,6 +34,7 @@ export const DailyAssignments = ({
   personnel = [],
   vehicules = [],
   chantiers = [],
+  stock = [],
   onAdd,
   onEdit,
   onDelete,
@@ -49,12 +52,12 @@ export const DailyAssignments = ({
   const [sortColumn, setSortColumn] = useState<SortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  // Helper function to get chantier name
-  const getChantierName = (chantier: string | ChantierData): string => {
+  // Helper function to get chantier name - memoized to avoid dependency issues
+  const getChantierName = React.useCallback((chantier: string | ChantierData): string => {
     if (typeof chantier === 'object') return chantier.name;
     const found = chantiers.find(c => c._id === chantier);
     return found?.name || 'Unknown';
-  };
+  }, [chantiers]);
 
   const filteredAssignments = useMemo(() => {
     let filtered = Array.isArray(assignments) ? assignments : [];
@@ -112,7 +115,7 @@ export const DailyAssignments = ({
     });
 
     return sorted;
-  }, [assignments, searchValue, selectedDate, sortColumn, sortDirection, chantiers]);
+  }, [assignments, searchValue, selectedDate, sortColumn, sortDirection, getChantierName]);
 
   const stats = useMemo(() => {
     const todayAssignments = assignments.filter((a) => {
@@ -566,7 +569,7 @@ export const DailyAssignments = ({
 
       {/* Modal */}
       {modalVisible && (
-        <DailyAssignmentModal
+        <StepWizardModal
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           initialData={editingAssignment || undefined}
@@ -575,6 +578,7 @@ export const DailyAssignments = ({
           personnel={personnel}
           vehicules={vehicules}
           chantiers={chantiers}
+          stock={stock}
         />
       )}
     </Box>

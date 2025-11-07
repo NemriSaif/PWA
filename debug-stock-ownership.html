@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Ownership Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #4CAF50;
+            color: white;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge.manager {
+            background: #2196F3;
+            color: white;
+        }
+        .badge.supplier {
+            background: #FF9800;
+            color: white;
+        }
+        .badge.match {
+            background: #4CAF50;
+            color: white;
+        }
+        .badge.mismatch {
+            background: #f44336;
+            color: white;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        .user-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Stock Ownership Debug Tool</h1>
+        
+        <div class="form-group">
+            <label for="baseUrl">Backend Base URL:</label>
+            <input type="text" id="baseUrl" value="http://localhost:3001">
+        </div>
+
+        <div class="form-group">
+            <label for="token">JWT Token:</label>
+            <input type="text" id="token" placeholder="Paste JWT token (from DevTools → Application → Local Storage)">
+        </div>
+
+        <button onclick="analyzeStock()">🔍 Analyze Stock Ownership</button>
+        <button onclick="checkMyInfo()">👤 Check My Info</button>
+
+        <div id="userInfo" class="user-info" style="display:none;"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let currentUserId = null;
+
+        function getHeaders() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('Please provide a JWT token');
+                throw new Error('No token provided');
+            }
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        function getBaseUrl() {
+            return document.getElementById('baseUrl').value;
+        }
+
+        async function checkMyInfo() {
+            try {
+                const response = await fetch(`${getBaseUrl()}/auth/me`, {
+                    headers: getHeaders()
+                });
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    currentUserId = user._id;
+                    
+                    const userInfoDiv = document.getElementById('userInfo');
+                    userInfoDiv.style.display = 'block';
+                    userInfoDiv.innerHTML = `
+                        <h3>👤 Currently Logged In As:</h3>
+                        <p><strong>Name:</strong> ${user.name}</p>
+                        <p><strong>Email:</strong> ${user.email}</p>
+                        <p><strong>Role:</strong> <span class="badge ${user.role}">${user.role}</span></p>
+                        <p><strong>User ID:</strong> <code>${user._id}</code></p>
+                    `;
+                } else {
+                    alert('Failed to get user info. Status: ' + response.status);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function analyzeStock() {
+            try {
+                // First get current user info
+                await checkMyInfo();
+
+                // Then get stock
+                const response = await fetch(`${getBaseUrl()}/stock`, {
+                    headers: getHeaders()
+                });
+                
+                if (!response.ok) {
+                    alert(`Failed to fetch stock. Status: ${response.status}`);
+                    return;
+                }
+
+                const stockItems = await response.json();
+                
+                const resultDiv = document.getElementById('result');
+                
+                if (stockItems.length === 0) {
+                    resultDiv.innerHTML = `
+                        <h3>⚠️ No Stock Items Found!</h3>
+                        <p>You don't have any stock items. As a manager, you need to create your own stock items.</p>
+                        <p><strong>Solution:</strong> Go to the Stock page and create new stock items. They will be owned by you (the manager).</p>
+                    `;
+                    return;
+                }
+
+                let tableHTML = `
+                    <h3>📦 Stock Items Analysis (${stockItems.length} items)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                                <th>Owner Name</th>
+                                <th>Owner Role</th>
+                                <th>Owner ID</th>
+                                <th>Ownership</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                let myStockCount = 0;
+                let otherStockCount = 0;
+
+                stockItems.forEach(item => {
+                    const owner = item.owner || {};
+                    const ownerId = typeof owner === 'object' ? owner._id : owner;
+                    const ownerName = typeof owner === 'object' ? (owner.name || 'Unknown') : 'Unknown';
+                    const ownerRole = typeof owner === 'object' ? (owner.role || 'Unknown') : 'Unknown';
+                    const isMyStock = ownerId === currentUserId;
+                    
+                    if (isMyStock) myStockCount++;
+                    else otherStockCount++;
+
+                    tableHTML += `
+                        <tr style="background: ${isMyStock ? '#e8f5e9' : '#ffebee'}">
+                            <td><strong>${item.name}</strong></td>
+                            <td>${item.quantity}</td>
+                            <td>${item.unit || 'N/A'}</td>
+                            <td>${ownerName}</td>
+                            <td><span class="badge ${ownerRole}">${ownerRole}</span></td>
+                            <td><code style="font-size: 11px;">${ownerId}</code></td>
+                            <td>
+                                ${isMyStock 
+                                    ? '<span class="badge match">✅ MY STOCK (Can consume)</span>' 
+                                    : '<span class="badge mismatch">❌ NOT MY STOCK (Cannot consume)</span>'}
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px;">
+                        <h4>📊 Summary:</h4>
+                        <p>✅ <strong>Your Stock Items:</strong> ${myStockCount} (You CAN consume these)</p>
+                        <p>❌ <strong>Other Users' Stock:</strong> ${otherStockCount} (You CANNOT consume these)</p>
+                        ${myStockCount === 0 ? `
+                            <p style="color: #d32f2f; font-weight: bold;">
+                                ⚠️ WARNING: You don't have any stock items! 
+                                You need to create your own stock items to use them in daily assignments.
+                            </p>
+                            <p><strong>Solution:</strong> Go to the Stock page and create new stock items. They will be automatically owned by you.</p>
+                        ` : ''}
+                    </div>
+                `;
+
+                resultDiv.innerHTML = tableHTML;
+            } catch (error) {
+                alert('Error: ' + error.message);
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>

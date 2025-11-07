@@ -58,4 +58,16 @@ export class StockController {
   remove(@Param('id') id: string, @Request() req) {
     return this.stockService.remove(id, req.user._id);
   }
+
+  @Post(':id/consume')
+  @Roles(UserRole.MANAGER)
+  consumeStock(@Param('id') id: string, @Body() body: { quantityUsed: number }, @Request() req) {
+    console.log('🔵 Stock Consume Controller:');
+    console.log('  Stock ID:', id);
+    console.log('  Quantity to consume:', body.quantityUsed);
+    console.log('  Request user._id:', req.user._id);
+    console.log('  Request user._id (string):', req.user._id.toString());
+    // Convert ObjectId to string before passing to service
+    return this.stockService.consumeStock(id, body.quantityUsed, req.user._id.toString());
+  }
 }

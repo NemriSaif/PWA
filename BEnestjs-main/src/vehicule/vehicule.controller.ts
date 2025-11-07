@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { VehiculeService } from './vehicule.service';
 import { CreateVehiculeDto } from './dto/create-vehicule.dto';
 import { UpdateVehiculeDto } from './dto/update-vehicule.dto';
@@ -7,7 +17,10 @@ import { UpdateVehiculeDto } from './dto/update-vehicule.dto';
 export class VehiculeController {
   constructor(private readonly vehiculeService: VehiculeService) {}
 
- @Post()
+  @Post()
+  @UsePipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false }),
+  )
   async create(@Body() createVehiculeDto: CreateVehiculeDto) {
     const vehicule = await this.vehiculeService.create(createVehiculeDto);
     console.log('✅ Vehicle added successfully:', vehicule);
@@ -25,8 +38,21 @@ export class VehiculeController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateVehiculeDto: UpdateVehiculeDto) {
-    const updatedVehicule = await this.vehiculeService.update(id, updateVehiculeDto);
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      skipMissingProperties: true,
+    }),
+  )
+  async update(
+    @Param('id') id: string,
+    @Body() updateVehiculeDto: UpdateVehiculeDto,
+  ) {
+    const updatedVehicule = await this.vehiculeService.update(
+      id,
+      updateVehiculeDto,
+    );
     console.log('✏️ Vehicle updated successfully:', updatedVehicule);
     return updatedVehicule;
   }
